@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroFlow 6.0 - Interface Moderne</title>
+    <title>NeuroFlow 7.0 - Cloud Sync</title>
     
-    <!-- OUTILS -->
+    <!-- OUTILS & LIBRARIES -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
@@ -15,7 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <style>
-        /* BASE */
+        /* DESIGN SYSTEM - CYBERPUNK GLASS */
         body { 
             background-color: #020617; 
             color: #f8fafc; 
@@ -26,13 +26,11 @@
                 radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.08), transparent 25%);
         }
 
-        /* SCROLLBAR */
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
 
-        /* GLASSMORPHISM AVANCÉ */
         .glass { 
             background: rgba(15, 23, 42, 0.6); 
             backdrop-filter: blur(12px); 
@@ -54,19 +52,13 @@
             box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5);
         }
 
-        /* ANIMATIONS */
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
 
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         .animate-float { animation: float 6s ease-in-out infinite; }
 
-        @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 15px rgba(56, 189, 248, 0); } 50% { box-shadow: 0 0 25px rgba(56, 189, 248, 0.3); } }
-        .glow-effect { animation: pulse-glow 3s infinite; }
-
-        /* UTILS */
-        .text-glow { text-shadow: 0 0 20px currentColor; }
-        
+        /* Input Autofill Fix */
         input:-webkit-autofill,
         input:-webkit-autofill:hover, 
         input:-webkit-autofill:focus, 
@@ -80,13 +72,38 @@
 <body>
     <div id="root"></div>
 
+    <!-- FIREBASE & APP LOGIC -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // CONFIGURATION FIREBASE AUTOMATIQUE
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app';
+
+        // Exposé globalement pour React
+        window.db = db;
+        window.auth = auth;
+        window.signInAnonymously = signInAnonymously;
+        window.doc = doc;
+        window.getDoc = getDoc;
+        window.setDoc = setDoc;
+        window.onSnapshot = onSnapshot;
+        window.collection = collection;
+        window.appId = appId;
+    </script>
+
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
         const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } = Recharts;
 
-        // --- CONSTANTES & DATA ---
-        const DB_KEY = 'neuroflow_db_v1';
+        // --- CONSTANTES ---
         const MAX_DAILY_REVIEWS = 1;
+        const COLLECTION_NAME = 'neuroflow_users_v7'; // Collection publique pour le partage
 
         const LEVELS = [
             { lvl: 1, xp: 0, title: "Novice", reward: { type: 'theme', id: 'blue', name: 'Thème Océan' } },
@@ -112,7 +129,7 @@
             { id: 's2i', name: 'S2I', color: '#10b981', icon: '⚙️', gradient: 'from-emerald-400 to-teal-500' },
         ];
 
-        // --- ICONS (SVG) ---
+        // --- ICONS ---
         const Icon = ({ path, className }) => (
             <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 {path}
@@ -129,42 +146,71 @@
             gift: <g><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></g>,
             logOut: <g><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></g>,
             play: <polygon points="5 3 19 12 5 21 5 3"/>,
-            flame: <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.1.2-2.2.6-3.3a1 1 0 0 1 1.9.8z"/>
+            flame: <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.1.2-2.2.6-3.3a1 1 0 0 1 1.9.8z"/>,
+            cloud: <path d="M17.5 19c0-1.7-1.3-3-3-3h-11a4 4 0 0 1-3.8-5.1 4 4 0 0 1 4.3-3.9c1.9 0 3.6.8 4.9 2.1a5 5 0 0 1 8.6 1.9 3 3 0 0 1 0 6z"/>
         };
 
-        // --- AUTH COMPONENT ---
-        const AuthView = ({ onLogin }) => {
-            const [isLogin, setIsLogin] = useState(true);
+        // --- AUTH & CLOUD COMPONENT ---
+        const AuthView = ({ onLogin, isConnecting }) => {
+            const [isRegister, setIsRegister] = useState(false);
             const [formData, setFormData] = useState({ username: '', password: '' });
             const [error, setError] = useState('');
+            const [loading, setLoading] = useState(false);
 
-            const handleSubmit = () => {
+            const handleSubmit = async () => {
                 setError('');
-                if(!formData.username || !formData.password) return setError("Champs manquants");
-
-                const db = JSON.parse(localStorage.getItem(DB_KEY) || '{}');
+                if(!formData.username || !formData.password) return setError("Veuillez tout remplir.");
                 
-                if (isLogin) {
-                    const user = db[formData.username];
-                    if (user && user.password === formData.password) {
-                        onLogin(formData.username, user.data);
-                    } else {
-                        setError("Identifiants incorrects");
-                    }
-                } else {
-                    if (db[formData.username]) return setError("Pseudo déjà pris");
-                    const newUser = {
-                        password: formData.password,
-                        data: {
-                            profile: { name: formData.username, xp: 0, avatar: "👤", theme: "blue" },
-                            courses: []
+                setLoading(true);
+                const usernameKey = formData.username.toLowerCase().replace(/\s+/g, '_');
+                
+                // Référence au document utilisateur dans Firestore
+                const userDocRef = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', COLLECTION_NAME, usernameKey);
+
+                try {
+                    const docSnap = await window.getDoc(userDocRef);
+
+                    if (isRegister) {
+                        if (docSnap.exists()) {
+                            setError("Ce pseudo est déjà pris !");
+                        } else {
+                            // Création du compte
+                            const newUser = {
+                                password: formData.password, // En prod, il faudrait hacher le mot de passe
+                                data: {
+                                    profile: { name: formData.username, xp: 0, avatar: "👤", theme: "blue" },
+                                    courses: []
+                                }
+                            };
+                            await window.setDoc(userDocRef, newUser);
+                            onLogin(usernameKey, newUser.data);
                         }
-                    };
-                    db[formData.username] = newUser;
-                    localStorage.setItem(DB_KEY, JSON.stringify(db));
-                    onLogin(formData.username, newUser.data);
+                    } else {
+                        // Connexion
+                        if (docSnap.exists()) {
+                            const userData = docSnap.data();
+                            if (userData.password === formData.password) {
+                                onLogin(usernameKey, userData.data);
+                            } else {
+                                setError("Mot de passe incorrect.");
+                            }
+                        } else {
+                            setError("Compte introuvable.");
+                        }
+                    }
+                } catch (err) {
+                    console.error("Erreur Auth:", err);
+                    setError("Erreur de connexion au Cloud. Réessayez.");
+                } finally {
+                    setLoading(false);
                 }
             };
+
+            if (isConnecting) return (
+                <div className="min-h-screen flex items-center justify-center bg-[#020617] text-cyan-400 font-mono animate-pulse">
+                    Connexion au Neural Cloud...
+                </div>
+            );
 
             return (
                 <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-[#020617]">
@@ -179,7 +225,9 @@
                                 <span className="text-4xl text-white">🧠</span>
                             </div>
                             <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 mb-2">NeuroFlow</h1>
-                            <p className="text-slate-400 font-medium">L'apprentissage nouvelle génération.</p>
+                            <p className="text-slate-400 font-medium flex items-center justify-center gap-2">
+                                <Icon path={ICONS.cloud} className="w-4 h-4"/> Cloud Sync Activé
+                            </p>
                         </div>
 
                         <div className="space-y-5">
@@ -187,17 +235,17 @@
                                 <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2 ml-1">Pseudo</label>
                                 <input 
                                     type="text" 
-                                    className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-5 py-4 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all duration-300 group-hover:border-slate-600"
+                                    className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-5 py-4 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                                     value={formData.username}
                                     onChange={e => setFormData({...formData, username: e.target.value})}
-                                    placeholder="Votre nom de code"
+                                    placeholder="Votre identifiant"
                                 />
                             </div>
                             <div className="group">
                                 <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2 ml-1">Mot de passe</label>
                                 <input 
                                     type="password" 
-                                    className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-5 py-4 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all duration-300 group-hover:border-slate-600"
+                                    className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-5 py-4 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                                     value={formData.password}
                                     onChange={e => setFormData({...formData, password: e.target.value})}
                                     placeholder="••••••••"
@@ -206,13 +254,17 @@
 
                             {error && <div className="text-rose-400 text-sm text-center bg-rose-500/10 py-3 rounded-xl border border-rose-500/20 animate-pulse">{error}</div>}
 
-                            <button onClick={handleSubmit} className="w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-cyan-500/20 transition-all duration-300 transform hover:scale-[1.02] active:scale-95 mt-4">
-                                {isLogin ? "Lancer le système" : "Rejoindre l'élite"}
+                            <button 
+                                onClick={handleSubmit} 
+                                disabled={loading}
+                                className={`w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-cyan-500/20 transition-all duration-300 transform hover:scale-[1.02] active:scale-95 mt-4 flex items-center justify-center gap-2 ${loading ? 'opacity-70 cursor-wait' : ''}`}
+                            >
+                                {loading ? "Synchronisation..." : (isRegister ? "Créer un compte" : "Se connecter")}
                             </button>
 
                             <div className="text-center pt-6">
-                                <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="text-slate-500 hover:text-cyan-400 text-sm font-medium transition-colors">
-                                    {isLogin ? "Première visite ? Créer un compte" : "Déjà membre ? Connexion"}
+                                <button onClick={() => { setIsRegister(!isRegister); setError(''); }} className="text-slate-500 hover:text-cyan-400 text-sm font-medium transition-colors">
+                                    {isRegister ? "Déjà un compte ? Connexion" : "Nouveau ? Créer un compte"}
                                 </button>
                             </div>
                         </div>
@@ -223,40 +275,98 @@
 
         // --- MAIN APP ---
         function NeuroFlowApp() {
-            const [sessionUsername, setSessionUsername] = useState(null);
+            const [isFirebaseReady, setIsFirebaseReady] = useState(false);
+            const [sessionUserKey, setSessionUserKey] = useState(null);
+            
+            // App Data
             const [userProfile, setUserProfile] = useState(null);
             const [courses, setCourses] = useState([]);
+            
+            // UI State
             const [view, setView] = useState('home');
             const [selectedCourse, setSelectedCourse] = useState(null);
             const [newCourse, setNewCourse] = useState({ title: '', subject: 'maths' });
 
+            // 1. Initialisation Firebase Auth (Anonyme pour accès DB)
             useEffect(() => {
-                if (sessionUsername && userProfile) {
-                    const db = JSON.parse(localStorage.getItem(DB_KEY) || '{}');
-                    if (db[sessionUsername]) {
-                        db[sessionUsername].data = { profile: userProfile, courses: courses };
-                        localStorage.setItem(DB_KEY, JSON.stringify(db));
+                const initAuth = async () => {
+                    try {
+                        if (typeof window.signInAnonymously === 'function') {
+                            await window.signInAnonymously(window.auth);
+                            setIsFirebaseReady(true);
+                        } else {
+                            // Fallback si firebase met du temps à charger
+                            setTimeout(initAuth, 500);
+                        }
+                    } catch (e) {
+                        console.error("Auth Error", e);
                     }
-                }
-            }, [userProfile, courses, sessionUsername]);
+                };
+                initAuth();
+            }, []);
 
-            const handleLogin = (username, data) => {
-                setSessionUsername(username);
-                setUserProfile(data.profile);
-                setCourses(data.courses);
+            // 2. Synchronisation Temps Réel (Listener)
+            useEffect(() => {
+                if (!sessionUserKey) return;
+
+                const userDocRef = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', COLLECTION_NAME, sessionUserKey);
+                
+                // Écoute les changements sur le document utilisateur
+                const unsubscribe = window.onSnapshot(userDocRef, (doc) => {
+                    if (doc.exists()) {
+                        const data = doc.data().data;
+                        setUserProfile(data.profile);
+                        setCourses(data.courses);
+                    }
+                });
+
+                return () => unsubscribe();
+            }, [sessionUserKey]);
+
+            // 3. Sauvegarde dans le Cloud
+            const saveToCloud = async (newProfile, newCourses) => {
+                if (!sessionUserKey) return;
+                
+                // Mise à jour optimiste locale
+                if (newProfile) setUserProfile(newProfile);
+                if (newCourses) setCourses(newCourses);
+
+                // Sauvegarde distante
+                try {
+                    const userDocRef = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', COLLECTION_NAME, sessionUserKey);
+                    // On récupère d'abord le mot de passe pour ne pas l'écraser (ou on fait un merge)
+                    // Ici on utilise setDoc avec merge: true pour être safe sur la structure
+                    const payload = {
+                        data: {
+                            profile: newProfile || userProfile,
+                            courses: newCourses || courses
+                        }
+                    };
+                    await window.setDoc(userDocRef, payload, { merge: true });
+                } catch (e) {
+                    console.error("Save Error", e);
+                }
+            };
+
+            const handleLogin = (userKey, initialData) => {
+                setSessionUserKey(userKey);
+                setUserProfile(initialData.profile);
+                setCourses(initialData.courses);
                 setView('home');
-                if (data.courses.length > 0) confetti({ particleCount: 30, spread: 50, origin: { y: 0.8 } });
+                confetti({ particleCount: 50, spread: 70, origin: { y: 0.8 } });
             };
 
             const handleLogout = () => {
-                setSessionUsername(null);
+                setSessionUserKey(null);
                 setUserProfile(null);
                 setCourses([]);
                 setView('login');
             };
 
-            if (!sessionUsername) return <AuthView onLogin={handleLogin} />;
+            if (!isFirebaseReady) return <div className="min-h-screen bg-[#020617] flex items-center justify-center text-cyan-500 animate-pulse">Initialisation du système...</div>;
+            if (!sessionUserKey || !userProfile) return <AuthView onLogin={handleLogin} isConnecting={!isFirebaseReady} />;
 
+            // --- THEME & LOGIC ---
             const activeTheme = THEMES[userProfile.theme] || THEMES.blue;
             const currentLevel = LEVELS.slice().reverse().find(l => userProfile.xp >= l.xp) || LEVELS[0];
             const nextLevel = LEVELS.find(l => l.lvl === currentLevel.lvl + 1);
@@ -271,7 +381,8 @@
                     created: new Date().toISOString(),
                     history: []
                 };
-                setCourses([...courses, course]);
+                const updatedCourses = [...courses, course];
+                saveToCloud(null, updatedCourses); // Sauvegarde Cloud
                 setNewCourse({ title: '', subject: 'maths' });
                 setView('home');
                 confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 }, colors: ['#22d3ee', '#e879f9'] });
@@ -287,19 +398,20 @@
 
                 const now = new Date().toISOString();
                 const updatedCourses = courses.map(c => c.id === course.id ? { ...c, history: [...c.history, now] } : c);
-                setCourses(updatedCourses);
-
+                
                 const xpGain = 100; 
                 const newXp = userProfile.xp + xpGain;
+                const updatedProfile = { ...userProfile, xp: newXp };
+
                 const newLvlObj = LEVELS.slice().reverse().find(l => newXp >= l.xp);
-                
                 if (newLvlObj.lvl > currentLevel.lvl) {
                     confetti({ particleCount: 200, spread: 100, origin: { y: 0.5 } });
                     alert(`UPGRADE ! Niveau ${newLvlObj.lvl} atteint.`);
                 } else {
                     confetti({ particleCount: 30, spread: 40, origin: { y: 0.7 }, colors: ['#ffffff', activeTheme.bg.split('-')[1]] });
                 }
-                setUserProfile(prev => ({ ...prev, xp: newXp }));
+
+                saveToCloud(updatedProfile, updatedCourses); // Sauvegarde Cloud
             };
 
             const getRetentionCurves = (course) => {
@@ -307,7 +419,6 @@
                 const now = new Date();
                 const reviewCount = course.history.length;
                 const hasReviews = reviewCount > 0;
-                // Calcul de stabilité plus "gamer" : plus on joue, plus c'est facile
                 const stability = hasReviews ? 2 * Math.pow(2.2, reviewCount - 1) : 1; 
                 const lastEventDate = hasReviews ? new Date(course.history[reviewCount - 1]) : new Date(course.created);
 
@@ -331,13 +442,10 @@
                 return data;
             };
 
-            // CORRECTIF : Vérification sécurisée des données payload
             const CustomTooltip = ({ active, payload, label }) => {
                 if (active && payload && payload.length) {
-                    // Recherche sécurisée des éléments par clé de données
                     const realData = payload.find(p => p.dataKey === 'real');
                     const theoData = payload.find(p => p.dataKey === 'theo');
-
                     return (
                         <div className="bg-slate-900/90 border border-slate-600 p-4 rounded-xl shadow-2xl backdrop-blur-md">
                             <p className="font-bold text-white mb-2 border-b border-slate-700 pb-1">{label}</p>
@@ -440,8 +548,6 @@
 
                                 return (
                                     <div key={course.id} className={`glass-card rounded-3xl p-6 relative group overflow-hidden ${isSelected ? 'ring-2 ring-cyan-500/50' : ''}`}>
-                                        
-                                        {/* Header Card */}
                                         <div className="flex justify-between items-start mb-6">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${sub.gradient} flex items-center justify-center text-2xl shadow-lg`}>
@@ -452,15 +558,11 @@
                                                     <h3 className="text-lg font-bold text-white leading-tight truncate max-w-[150px]">{course.title}</h3>
                                                 </div>
                                             </div>
-                                            <button 
-                                                onClick={() => setSelectedCourse(isSelected ? null : course)} 
-                                                className={`p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 transition ${isSelected ? 'text-cyan-400 bg-cyan-900/20' : ''}`}
-                                            >
+                                            <button onClick={() => setSelectedCourse(isSelected ? null : course)} className={`p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 transition ${isSelected ? 'text-cyan-400 bg-cyan-900/20' : ''}`}>
                                                 <Icon path={ICONS.chart} className="w-5 h-5" />
                                             </button>
                                         </div>
 
-                                        {/* Chart Area */}
                                         {isSelected && (
                                             <div className="h-40 -mx-2 mb-6 animate-fade-in relative bg-slate-900/50 rounded-xl border border-slate-700/50 overflow-hidden">
                                                 <ResponsiveContainer width="100%" height="100%">
@@ -479,7 +581,6 @@
                                             </div>
                                         )}
 
-                                        {/* Footer & Action */}
                                         <div className="mt-auto">
                                             {isLimitReached ? (
                                                 <button disabled className="w-full py-4 rounded-xl bg-slate-800/50 border border-slate-700 text-slate-500 font-bold flex items-center justify-center gap-2 cursor-not-allowed">
@@ -510,48 +611,31 @@
                 </div>
             );
 
+            // Re-use of Builder & Profile renders from previous versions (simplified for brevity here)
             const renderBuilder = () => (
                 <div className="fixed inset-0 bg-[#020617]/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
                     <div className="glass w-full max-w-lg rounded-3xl p-8 animate-fade-in border border-slate-700 relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 to-purple-600"></div>
-                        
                         <div className="flex justify-between items-center mb-8">
                             <h2 className="text-2xl font-black text-white tracking-tight">Nouveau Module</h2>
-                            <button onClick={() => setView('home')} className="p-2 hover:bg-slate-800 rounded-full transition text-slate-400 hover:text-white">
-                                <Icon path={ICONS.x} className="w-6 h-6"/>
-                            </button>
+                            <button onClick={() => setView('home')} className="p-2 hover:bg-slate-800 rounded-full transition text-slate-400 hover:text-white"><Icon path={ICONS.x} className="w-6 h-6"/></button>
                         </div>
-                        
                         <div className="space-y-6">
                             <div>
                                 <label className="block text-slate-400 text-xs font-bold uppercase mb-2 ml-1">Titre du cours</label>
-                                <input 
-                                    type="text" 
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-5 py-4 text-white text-lg font-medium focus:border-cyan-500 outline-none transition-all placeholder:text-slate-600"
-                                    placeholder="Ex: Mécanique Quantique" 
-                                    value={newCourse.title} 
-                                    onChange={e => setNewCourse({...newCourse, title: e.target.value})} 
-                                    autoFocus
-                                />
+                                <input type="text" className="w-full bg-slate-900 border border-slate-700 rounded-xl px-5 py-4 text-white text-lg font-medium focus:border-cyan-500 outline-none transition-all placeholder:text-slate-600" placeholder="Ex: Mécanique Quantique" value={newCourse.title} onChange={e => setNewCourse({...newCourse, title: e.target.value})} autoFocus />
                             </div>
                             <div>
                                 <label className="block text-slate-400 text-xs font-bold uppercase mb-2 ml-1">Domaine</label>
                                 <div className="grid grid-cols-2 gap-3">
                                     {SUBJECTS.map(s => (
-                                        <button 
-                                            key={s.id} 
-                                            onClick={() => setNewCourse({...newCourse, subject: s.id})} 
-                                            className={`p-4 rounded-xl border-2 flex items-center gap-3 transition-all ${newCourse.subject === s.id ? 'border-white bg-slate-800' : 'border-transparent bg-slate-900 opacity-60 hover:opacity-100'}`}
-                                        >
-                                            <span className="text-2xl">{s.icon}</span>
-                                            <span className="font-bold text-white">{s.name}</span>
+                                        <button key={s.id} onClick={() => setNewCourse({...newCourse, subject: s.id})} className={`p-4 rounded-xl border-2 flex items-center gap-3 transition-all ${newCourse.subject === s.id ? 'border-white bg-slate-800' : 'border-transparent bg-slate-900 opacity-60 hover:opacity-100'}`}>
+                                            <span className="text-2xl">{s.icon}</span><span className="font-bold text-white">{s.name}</span>
                                         </button>
                                     ))}
                                 </div>
                             </div>
-                            <button onClick={handleCreateCourse} className={`w-full py-4 rounded-xl font-bold text-white bg-gradient-to-r ${activeTheme.bg} shadow-xl hover:scale-[1.02] active:scale-95 transition-all mt-4`}>
-                                Initialiser le Cours
-                            </button>
+                            <button onClick={handleCreateCourse} className={`w-full py-4 rounded-xl font-bold text-white bg-gradient-to-r ${activeTheme.bg} shadow-xl hover:scale-[1.02] active:scale-95 transition-all mt-4`}>Initialiser le Cours</button>
                         </div>
                     </div>
                 </div>
@@ -561,29 +645,17 @@
                 <div className="fixed inset-0 bg-[#020617]/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
                     <div className="glass w-full max-w-3xl rounded-3xl border border-slate-700 shadow-2xl flex flex-col max-h-[85vh] animate-fade-in overflow-hidden">
                         <div className="p-6 border-b border-slate-700/50 flex justify-between items-center bg-slate-900/50">
-                            <h2 className="text-xl font-black text-white uppercase tracking-widest flex items-center gap-3">
-                                <span className="text-3xl">🛡️</span> Armurerie
-                            </h2>
+                            <h2 className="text-xl font-black text-white uppercase tracking-widest flex items-center gap-3"><span className="text-3xl">🛡️</span> Armurerie</h2>
                             <button onClick={() => setView('home')} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition"><Icon path={ICONS.x} className="w-6 h-6"/></button>
                         </div>
-                        
                         <div className="p-8 overflow-y-auto custom-scrollbar space-y-10 bg-slate-900/30">
-                            {/* Avatars Grid */}
                             <section>
                                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Identité Visuelle</h3>
                                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-4">
                                     {['👨‍🎓', '👩‍🎓', '🧠', '🦁', '🚀', '👑'].map((emoji, i) => {
                                         const locked = i > 1 && currentLevel.lvl < (i + 1); 
                                         return (
-                                            <button 
-                                                key={i} 
-                                                disabled={locked} 
-                                                onClick={() => setUserProfile({...userProfile, avatar: emoji})} 
-                                                className={`aspect-square rounded-2xl flex items-center justify-center text-4xl border-2 transition-all relative group
-                                                    ${userProfile.avatar === emoji ? `border-cyan-500 bg-cyan-900/20 shadow-[0_0_20px_rgba(34,211,238,0.3)]` : 'border-slate-700 bg-slate-800'}
-                                                    ${locked ? 'opacity-40 grayscale cursor-not-allowed' : 'hover:-translate-y-1 hover:border-slate-500'}
-                                                `}
-                                            >
+                                            <button key={i} disabled={locked} onClick={() => saveToCloud({...userProfile, avatar: emoji}, null)} className={`aspect-square rounded-2xl flex items-center justify-center text-4xl border-2 transition-all relative group ${userProfile.avatar === emoji ? `border-cyan-500 bg-cyan-900/20 shadow-[0_0_20px_rgba(34,211,238,0.3)]` : 'border-slate-700 bg-slate-800'} ${locked ? 'opacity-40 grayscale cursor-not-allowed' : 'hover:-translate-y-1 hover:border-slate-500'}`}>
                                                 {locked && <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl"><Icon path={ICONS.lock} className="w-6 h-6 text-white"/></div>}
                                                 {emoji}
                                             </button>
@@ -591,8 +663,6 @@
                                     })}
                                 </div>
                             </section>
-
-                            {/* Themes Grid */}
                             <section>
                                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Interface Système</h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -601,21 +671,10 @@
                                         const requiredLvl = levelObj ? levelObj.lvl : 1;
                                         const locked = currentLevel.lvl < requiredLvl;
                                         return (
-                                            <button 
-                                                key={key} 
-                                                disabled={locked} 
-                                                onClick={() => setUserProfile({...userProfile, theme: key})} 
-                                                className={`p-5 rounded-2xl border-2 flex items-center justify-between transition-all group
-                                                    ${userProfile.theme === key ? `border-${t.border.split('-')[1]}-500 bg-slate-800 shadow-lg` : 'border-slate-700 bg-slate-900'}
-                                                    ${locked ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-500'}
-                                                `}
-                                            >
+                                            <button key={key} disabled={locked} onClick={() => saveToCloud({...userProfile, theme: key}, null)} className={`p-5 rounded-2xl border-2 flex items-center justify-between transition-all group ${userProfile.theme === key ? `border-${t.border.split('-')[1]}-500 bg-slate-800 shadow-lg` : 'border-slate-700 bg-slate-900'} ${locked ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-500'}`}>
                                                 <div className="flex items-center gap-4">
                                                     <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${t.bg} shadow-inner`}></div>
-                                                    <div className="text-left">
-                                                        <div className="font-bold text-white text-lg capitalize">{key}</div>
-                                                        <div className="text-xs font-mono text-slate-400">{locked ? `REQ: LVL ${requiredLvl}` : 'UNLOCKED'}</div>
-                                                    </div>
+                                                    <div className="text-left"><div className="font-bold text-white text-lg capitalize">{key}</div><div className="text-xs font-mono text-slate-400">{locked ? `REQ: LVL ${requiredLvl}` : 'UNLOCKED'}</div></div>
                                                 </div>
                                                 {locked ? <Icon path={ICONS.lock} className="w-6 h-6 text-slate-600"/> : userProfile.theme === key && <div className="w-4 h-4 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]"></div>}
                                             </button>
