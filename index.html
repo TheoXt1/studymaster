@@ -1,719 +1,480 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ReferenceLine
-} from 'recharts';
-import { 
-  BookOpen, Brain, TrendingUp, Calendar, Plus, 
-  FileText, CheckCircle, XCircle, Award, Zap, 
-  ChevronRight, Upload, Trash2, RotateCcw, Activity, Clock,
-  User, Settings, LogOut, Sparkles, PlusCircle
-} from 'lucide-react';
-
-// --- DATA TYPES & INITIAL STATE ---
-
-const SUBJECTS = [
-  { id: 'maths', name: 'Mathématiques', color: '#8884d8', icon: '📐' },
-  { id: 'pc', name: 'Physique-Chimie', color: '#82ca9d', icon: '🧪' },
-  { id: 's2i', name: 'S2I', color: '#ffc658', icon: '⚙️' },
-  { id: 'info', name: 'Informatique', color: '#ff7300', icon: '💻' }
-];
-
-// État initial vide ou presque pour un nouvel utilisateur
-const INITIAL_TOPICS = [
-  { 
-    id: 1, 
-    subject: 'info', 
-    title: 'Exemple: Bienvenue sur NeuroFlow', 
-    level: 1, 
-    interval: 0,
-    nextReview: new Date().toISOString(), 
-    lastReviewed: null, 
-    content: 'Ceci est une carte exemple. Créez les vôtres via le bouton "Créer" dans le menu à gauche.', 
-    status: 'new',
-    history: [] // Pour stocker l'historique des révisions et tracer la courbe
-  }
-];
-
-// --- UTILS ---
-
-// Algorithme de Répétition Espacée (Amélioré pour prédictions)
-// Retourne l'intervalle en jours pour chaque choix
-const getNextIntervals = (currentInterval, currentLevel) => {
-  // Logique simplifiée type SuperMemo
-  // Intervalle minimum 1 jour
-  const safeInterval = Math.max(currentInterval, 1);
-  
-  return {
-    again: 0, // A revoir aujourd'hui
-    hard: 1, // Demain
-    good: Math.ceil(safeInterval * 1.5 + currentLevel), // Croissance modérée
-    easy: Math.ceil(safeInterval * 2.5 + currentLevel * 2) // Croissance forte
-  };
-};
-
-const formatDate = (dateString) => {
-  const options = { weekday: 'short', day: 'numeric', month: 'short' };
-  return new Date(dateString).toLocaleDateString('fr-FR', options);
-};
-
-const formatTimeDelta = (days) => {
-  if (days === 0) return 'Auj.';
-  if (days === 1) return 'Demain';
-  return `+${days}j`;
-};
-
-// Générateur de données pour la courbe de l'oubli spécifique à un topic
-const generateTopicCurveData = (topic) => {
-  const data = [];
-  const now = new Date();
-  const createdDate = topic.history.length > 0 ? new Date(topic.history[0].date) : new Date();
-  
-  // 1. Courbe théorique (Oubli naturel sans révision après apprentissage initial)
-  // Modèle exponentiel R = e^(-t/S)
-  
-  // 2. Courbe réelle (Dents de scie basées sur l'historique)
-  let currentStability = 2; // Stabilité initiale (jours avant d'atteindre 90% oubli)
-  let lastReviewDate = createdDate;
-  
-  // Simuler 30 jours ou jusqu'à la prochaine révision prévue + 10 jours
-  const maxDays = 30; 
-
-  for (let i = 0; i <= maxDays; i++) {
-    const dateAtI = new Date(createdDate);
-    dateAtI.setDate(createdDate.getDate() + i);
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroFlow - Apprentissage Optimisé</title>
     
-    // Calcul théorique (Si on avait jamais révisé après le jour 0)
-    const theoreticalRetention = 100 * Math.exp(-i / 3); // Décroissance rapide
-
-    // Calcul Réel (Basé sur l'historique)
-    let realRetention = 0;
+    <!-- 1. CHARGEMENT DES OUTILS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     
-    // Trouver la dernière révision avant cette date 'i'
-    const pastReviews = topic.history.filter(h => new Date(h.date) <= dateAtI);
+    <!-- Babel pour traduire le JSX dans le navigateur -->
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
     
-    if (pastReviews.length === 0) {
-      // Pas encore révisé (ou jour 0)
-      const daysSinceCreation = i;
-      realRetention = 100 * Math.exp(-daysSinceCreation / currentStability);
-    } else {
-      // A été révisé
-      const lastReview = pastReviews[pastReviews.length - 1];
-      const daysSinceLastReview = (dateAtI - new Date(lastReview.date)) / (1000 * 60 * 60 * 24);
-      
-      // La stabilité augmente à chaque révision (simplification visuelle)
-      // Dans une vraie app, on stockerait la stabilité calculée à chaque étape
-      const effectiveStability = currentStability * Math.pow(1.8, pastReviews.length); 
-      
-      realRetention = 100 * Math.exp(-daysSinceLastReview / effectiveStability);
-    }
-
-    // Remonter à 100% les jours de révision exacts (pour le visuel en dents de scie)
-    const isReviewDay = topic.history.some(h => {
-        const d = new Date(h.date);
-        return d.getDate() === dateAtI.getDate() && d.getMonth() === dateAtI.getMonth();
-    });
-    if (isReviewDay || i === 0) realRetention = 100;
-
-    data.push({
-      day: `J+${i}`,
-      theoretical: theoreticalRetention,
-      real: realRetention
-    });
-  }
-  return data;
-};
-
-// --- COMPONENTS ---
-
-export default function StudyFlow() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [topics, setTopics] = useState(INITIAL_TOPICS);
-  const [userStats, setUserStats] = useState({ xp: 0, level: 1, streak: 1 });
-  
-  const [selectedTopic, setSelectedTopic] = useState(null); // Pour la révision
-  const [analyzingTopic, setAnalyzingTopic] = useState(null); // Pour le graphique détaillé
-  
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newTopicForm, setNewTopicForm] = useState({ title: '', subject: 'maths', content: '' });
-
-  // --- DERIVED DATA ---
-  
-  const today = new Date();
-  
-  const dueTopics = useMemo(() => {
-    return topics.filter(t => new Date(t.nextReview) <= today).sort((a,b) => new Date(a.nextReview) - new Date(b.nextReview));
-  }, [topics]);
-
-  const levelProgress = (userStats.xp % 1000) / 10; 
-
-  // --- ACTIONS ---
-
-  const handleReview = (rating) => {
-    if (!selectedTopic) return;
-
-    const intervals = getNextIntervals(selectedTopic.interval || 0, selectedTopic.level);
+    <!-- CORRECTIF 1 : Inclusion de PropTypes nécessaire pour Recharts en version UMD -->
+    <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
     
-    let nextInterval = 0;
-    if (rating === 'easy') nextInterval = intervals.easy;
-    if (rating === 'good') nextInterval = intervals.good;
-    if (rating === 'hard') nextInterval = intervals.hard;
-    if (rating === 'again') nextInterval = intervals.again;
+    <!-- Recharts -->
+    <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
 
-    const nextDate = new Date();
-    nextDate.setDate(nextDate.getDate() + nextInterval);
-    
-    // XP Calculation
-    let xpGain = rating === 'easy' ? 20 : rating === 'good' ? 15 : rating === 'hard' ? 10 : 5;
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+        
+        body { background-color: #020617; color: #e2e8f0; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-in { animation: fadeIn 0.5s ease-out forwards; }
+    </style>
+</head>
+<body>
 
-    // Update State
-    const updatedTopics = topics.map(t => {
-      if (t.id === selectedTopic.id) {
-        return { 
-          ...t, 
-          level: t.level + 1,
-          interval: nextInterval,
-          nextReview: nextDate.toISOString(),
-          lastReviewed: new Date().toISOString(),
-          status: 'reviewed',
-          history: [...t.history, { date: new Date().toISOString(), rating }]
-        };
-      }
-      return t;
-    });
+    <div id="root"></div>
 
-    setTopics(updatedTopics);
-    setUserStats(prev => ({
-      ...prev,
-      xp: prev.xp + xpGain,
-      level: Math.floor((prev.xp + xpGain) / 1000) + 1
-    }));
-    
-    setSelectedTopic(null);
-  };
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+        
+        const { 
+            LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip: RechartsTooltip, 
+            ResponsiveContainer, AreaChart, Area, RadarChart, PolarGrid, 
+            PolarAngleAxis, PolarRadiusAxis, Radar 
+        } = Recharts;
 
-  const handleAddTopic = () => {
-    if (!newTopicForm.title) return;
-    const newId = Date.now(); // Unique ID simple
-    const newTopic = {
-      id: newId,
-      subject: newTopicForm.subject,
-      title: newTopicForm.title,
-      level: 1,
-      interval: 0,
-      nextReview: new Date().toISOString(),
-      lastReviewed: null,
-      content: newTopicForm.content || 'Pas de contenu textuel.',
-      status: 'new',
-      history: []
-    };
-    setTopics([...topics, newTopic]);
-    setShowAddModal(false);
-    setNewTopicForm({ title: '', subject: 'maths', content: '' });
-  };
+        // --- ICONES (CORRIGÉES : Utilisation de <g> au lieu de <>) ---
+        const Icon = ({ name, color = "currentColor", size = 24, className = "" }) => {
+            const icons = {
+                Brain: <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" />,
+                LayoutDashboard: <path d="M3 3h7v9H3z M14 3h7v5h-7z M14 12h7v9h-7z M3 16h7v5H3z" />,
+                Layers: <g><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" /><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></g>,
+                FolderOpen: <path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-3.25 7a2 2 0 0 1-1.8 1.18H7a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4h8a2 2 0 0 1 2 2v1" />,
+                User: <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2 M12 3a4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-4-4 4 4 0 0 1 4-4z" />,
+                Award: <g><circle cx="12" cy="8" r="7" /><path d="M8.21 13.89 7 23l5-3 5 3-1.21-9.12" /></g>,
+                Zap: <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />,
+                Plus: <path d="M5 12h14 M12 5v14" />,
+                PlusCircle: <g><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></g>,
+                Clock: <g><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></g>,
+                TrendingUp: <g><path d="m22 7-8.5 8.5-5-5L2 17" /><path d="M16 7h6v6" /></g>,
+                Activity: <path d="M22 12h-4l-3 9L9 3l-3 9H2" />,
+                CheckCircle: <g><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><path d="M22 4 12 14.01l-3-3" /></g>,
+                XCircle: <g><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" /></g>,
+                ChevronRight: <path d="m9 18 6-6-6-6" />,
+                Upload: <g><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m17 8-5-5-5 5" /><path d="M12 3v12" /></g>,
+                Trash2: <g><path d="M3 6h18 M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></g>,
+                Settings: <g><path d="M12.22 2h-.44a2 2 0 0 1-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></g>,
+                LogOut: <g><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></g>,
+                Sparkles: <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />,
+                FileText: <g><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><path d="M14 2v6h6" /><path d="M16 13H8" /><path d="M16 17H8" /><path d="M10 9H8" /></g>
+            };
 
-  const handleDeleteTopic = (id) => {
-    setTopics(topics.filter(t => t.id !== id));
-    if (analyzingTopic && analyzingTopic.id === id) setAnalyzingTopic(null);
-  };
-
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setNewTopicForm(prev => ({ ...prev, content: `Fichier importé : ${file.name}\n\n[Contenu simulé du PDF/Image...]` }));
-    }
-  };
-
-  // --- SUB-COMPONENTS ---
-
-  const Sidebar = () => (
-    <div className="w-20 md:w-64 bg-slate-900/90 backdrop-blur-xl border-r border-white/10 flex flex-col items-center md:items-start py-8 fixed h-full z-10 transition-all">
-      <div className="px-6 mb-8 flex items-center gap-3">
-        <div className="w-10 h-10 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
-          <Brain className="text-white w-6 h-6" />
-        </div>
-        <span className="hidden md:block font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">
-          NeuroFlow
-        </span>
-      </div>
-
-      <div className="px-4 mb-6 w-full">
-         <button 
-           onClick={() => setShowAddModal(true)}
-           className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white p-3 rounded-xl font-bold shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 transition-all transform hover:scale-105"
-         >
-            <PlusCircle className="w-5 h-5" />
-            <span className="hidden md:block">Créer</span>
-         </button>
-      </div>
-
-      <nav className="flex-1 w-full px-4 space-y-2">
-        {[
-          { id: 'dashboard', icon: LayoutDashboard, label: 'Tableau de bord' },
-          { id: 'study', icon: Layers, label: 'Mode Révision' },
-          { id: 'resources', icon: FolderOpen, label: 'Mes Cours' },
-          { id: 'profile', icon: User, label: 'Mon Profil' },
-        ].map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setActiveTab(item.id)}
-            className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 group
-              ${activeTab === item.id 
-                ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' 
-                : 'text-slate-400 hover:bg-white/5 hover:text-white'
-              }`}
-          >
-            <item.icon className={`w-5 h-5 ${activeTab === item.id ? 'animate-pulse' : ''}`} />
-            <span className="hidden md:block font-medium">{item.label}</span>
-            {activeTab === item.id && <div className="hidden md:block ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_10px_#60a5fa]" />}
-          </button>
-        ))}
-      </nav>
-
-      <div className="w-full px-4 mt-auto">
-        <div className="bg-slate-800/50 rounded-xl p-4 border border-white/5">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="bg-yellow-500/20 p-2 rounded-lg text-yellow-400">
-              <Zap className="w-4 h-4" />
-            </div>
-            <div className="hidden md:block">
-              <div className="text-xs text-slate-400">Niveau {userStats.level}</div>
-              <div className="text-sm font-bold text-white">{userStats.xp} XP</div>
-            </div>
-          </div>
-          <div className="h-2 w-full bg-slate-700 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-gradient-to-r from-yellow-400 to-orange-500 transition-all duration-1000"
-              style={{ width: `${levelProgress}%` }}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // --- VIEWS ---
-
-  const DashboardView = () => (
-    <div className="space-y-8 animate-in fade-in zoom-in duration-500">
-      <div className="flex justify-between items-end">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Bonjour ! 🚀</h1>
-          <p className="text-slate-400">
-            {dueTopics.length > 0 
-              ? <span>Tu as <span className="text-cyan-400 font-bold">{dueTopics.length} cartes</span> à réviser.</span>
-              : "Tout est à jour. Utilisez le bouton 'Créer' pour ajouter du contenu."}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 bg-slate-800/50 px-4 py-2 rounded-full border border-white/10">
-          <Award className="text-orange-400 w-5 h-5" />
-          <span className="text-white font-bold">{userStats.streak} jours</span>
-        </div>
-      </div>
-
-      {/* Main Chart: Global Progress */}
-      <div className="bg-slate-800/40 backdrop-blur-md p-6 rounded-2xl border border-white/5">
-        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-          <Activity className="text-cyan-400" />
-          Activité de Révision (Simulation)
-        </h2>
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={[
-                {day: 'Lun', val: 2}, {day: 'Mar', val: 5}, {day: 'Mer', val: 3}, 
-                {day: 'Jeu', val: 8}, {day: 'Ven', val: 1}, {day: 'Sam', val: 0}, {day: 'Dim', val: dueTopics.length}
-            ]}>
-              <defs>
-                <linearGradient id="colorActivity" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#22d3ee" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-              <XAxis dataKey="day" stroke="#94a3b8" />
-              <YAxis stroke="#94a3b8" />
-              <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: 'white' }} />
-              <Area type="monotone" dataKey="val" stroke="#22d3ee" strokeWidth={3} fill="url(#colorActivity)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    </div>
-  );
-
-  const ProfileView = () => (
-    <div className="space-y-8 animate-in slide-in-from-right duration-500">
-       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-white">Mon Profil</h2>
-        <button className="text-slate-400 hover:text-red-400 flex items-center gap-2 text-sm">
-            <LogOut className="w-4 h-4" /> Déconnexion
-        </button>
-       </div>
-
-       {/* Profile Header */}
-       <div className="bg-slate-800/60 backdrop-blur-md p-8 rounded-2xl border border-white/5 flex flex-col md:flex-row items-center md:items-start gap-8 relative overflow-hidden">
-         <div className="absolute top-0 right-0 p-32 bg-blue-500/10 blur-[80px] rounded-full pointer-events-none" />
-         
-         <div className="relative">
-            <div className="w-24 h-24 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-3xl font-bold text-white shadow-xl shadow-cyan-500/30 border-4 border-slate-900">
-                EF
-            </div>
-            <div className="absolute -bottom-2 -right-2 bg-slate-900 p-1.5 rounded-full">
-                <div className="bg-green-500 w-4 h-4 rounded-full border-2 border-slate-900" />
-            </div>
-         </div>
-         
-         <div className="text-center md:text-left flex-1">
-            <h3 className="text-2xl font-bold text-white mb-1">Étudiant Futuriste</h3>
-            <p className="text-slate-400 mb-4">Membre depuis le 10 Dec 2025</p>
-            
-            <div className="flex flex-wrap justify-center md:justify-start gap-3">
-                <div className="flex items-center gap-2 bg-blue-500/10 px-4 py-2 rounded-full border border-blue-500/20 text-blue-300">
-                    <Zap className="w-4 h-4" />
-                    <span className="font-bold">Niveau {userStats.level}</span>
-                </div>
-                <div className="flex items-center gap-2 bg-orange-500/10 px-4 py-2 rounded-full border border-orange-500/20 text-orange-300">
-                    <Award className="w-4 h-4" />
-                    <span className="font-bold">{userStats.streak} Jours Série</span>
-                </div>
-                <div className="flex items-center gap-2 bg-purple-500/10 px-4 py-2 rounded-full border border-purple-500/20 text-purple-300">
-                    <Sparkles className="w-4 h-4" />
-                    <span className="font-bold">{userStats.xp} XP Total</span>
-                </div>
-            </div>
-         </div>
-       </div>
-
-       {/* Stats Overview */}
-       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-           <div className="bg-slate-800/40 p-6 rounded-2xl border border-white/5 flex flex-col items-center text-center hover:bg-slate-800/60 transition-colors">
-                <div className="p-3 bg-cyan-500/20 rounded-xl text-cyan-400 mb-3">
-                    <FileText className="w-6 h-6" />
-                </div>
-                <div className="text-3xl font-bold text-white mb-1">{topics.length}</div>
-                <div className="text-sm text-slate-400">Total Flashcards</div>
-           </div>
-           
-           <div className="bg-slate-800/40 p-6 rounded-2xl border border-white/5 flex flex-col items-center text-center hover:bg-slate-800/60 transition-colors">
-                <div className="p-3 bg-green-500/20 rounded-xl text-green-400 mb-3">
-                    <CheckCircle className="w-6 h-6" />
-                </div>
-                <div className="text-3xl font-bold text-white mb-1">
-                    {Math.round((topics.filter(t => t.level > 1).length / Math.max(topics.length, 1)) * 100)}%
-                </div>
-                <div className="text-sm text-slate-400">Taux de Maîtrise</div>
-           </div>
-
-           <div className="bg-slate-800/40 p-6 rounded-2xl border border-white/5 flex flex-col items-center text-center hover:bg-slate-800/60 transition-colors">
-                <div className="p-3 bg-pink-500/20 rounded-xl text-pink-400 mb-3">
-                    <Clock className="w-6 h-6" />
-                </div>
-                <div className="text-3xl font-bold text-white mb-1">12h</div>
-                <div className="text-sm text-slate-400">Temps d'étude (Simulé)</div>
-           </div>
-       </div>
-
-       {/* Settings Section (Mock) */}
-       <div className="bg-slate-800/40 p-6 rounded-2xl border border-white/5">
-            <h4 className="font-bold text-white mb-4 flex items-center gap-2">
-                <Settings className="w-5 h-5 text-slate-400" /> Paramètres de l'application
-            </h4>
-            <div className="space-y-4">
-                <div className="flex justify-between items-center p-3 bg-slate-900/50 rounded-lg">
-                    <span className="text-slate-300">Mode Sombre</span>
-                    <div className="w-10 h-5 bg-green-500 rounded-full relative cursor-pointer">
-                        <div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full shadow-sm" />
-                    </div>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-slate-900/50 rounded-lg">
-                    <span className="text-slate-300">Rappels quotidiens par email</span>
-                    <div className="w-10 h-5 bg-slate-600 rounded-full relative cursor-pointer">
-                        <div className="absolute left-1 top-1 w-3 h-3 bg-white rounded-full shadow-sm" />
-                    </div>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-slate-900/50 rounded-lg">
-                    <span className="text-slate-300">Son des notifications</span>
-                    <div className="w-10 h-5 bg-green-500 rounded-full relative cursor-pointer">
-                        <div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full shadow-sm" />
-                    </div>
-                </div>
-            </div>
-       </div>
-    </div>
-  );
-
-  const StudyView = () => (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-white">Session de Révision</h2>
-        {/* Le bouton Ajouter est maintenant dans la Sidebar pour un accès rapide */}
-      </div>
-
-      {dueTopics.length === 0 ? (
-        <div className="text-center py-20 bg-slate-800/30 rounded-3xl border border-dashed border-slate-700">
-          <div className="inline-block p-6 bg-green-500/10 rounded-full mb-4">
-            <CheckCircle className="w-12 h-12 text-green-400" />
-          </div>
-          <h3 className="text-xl font-bold text-white mb-2">Tout est à jour !</h3>
-          <p className="text-slate-400 max-w-md mx-auto">
-            Excellent travail. Vous pouvez ajouter de nouvelles cartes via le menu ou consulter votre profil.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {dueTopics.map(topic => {
-             const subjectInfo = SUBJECTS.find(s => s.id === topic.subject);
-             // Calculate intervals for this specific card to show on buttons
-             const intervals = getNextIntervals(topic.interval || 0, topic.level);
-
-             return (
-              <div key={topic.id} className="bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl border border-white/5 hover:border-cyan-500/30 transition-all group relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 h-full" style={{ backgroundColor: subjectInfo.color }} />
-                
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1 block">
-                      {subjectInfo.name}
-                    </span>
-                    <h3 className="text-xl font-bold text-white">{topic.title}</h3>
-                  </div>
-                  <div className="bg-slate-950 p-2 rounded-lg text-slate-400 group-hover:text-cyan-400 transition-colors cursor-pointer" onClick={() => setSelectedTopic(topic)}>
-                    <ChevronRight className="w-6 h-6" />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4 text-sm text-slate-500">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" /> Intervalle actuel: {topic.interval}j
-                  </span>
-                </div>
-
-                {selectedTopic && selectedTopic.id === topic.id && (
-                  <div className="absolute inset-0 bg-slate-900 z-20 p-6 flex flex-col animate-in slide-in-from-right duration-300">
-                    <div className="flex-1 overflow-y-auto mb-4 custom-scrollbar">
-                      <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-4">
-                        <h3 className="text-lg font-bold text-white">{topic.title}</h3>
-                        <button onClick={() => setSelectedTopic(null)} className="text-slate-400 hover:text-white"><XCircle /></button>
-                      </div>
-                      <div className="prose prose-invert max-w-none whitespace-pre-wrap">
-                        <p className="text-slate-300 text-lg leading-relaxed">{topic.content}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-4 gap-3 mt-auto pt-4 border-t border-white/10">
-                      <button onClick={() => handleReview('again')} className="bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white py-3 rounded-xl flex flex-col items-center justify-center transition-all group-btn">
-                        <span className="font-bold">À revoir</span>
-                        <span className="text-xs opacity-70 group-btn-hover:text-white">{formatTimeDelta(intervals.again)}</span>
-                      </button>
-                      <button onClick={() => handleReview('hard')} className="bg-orange-500/10 hover:bg-orange-500 text-orange-400 hover:text-white py-3 rounded-xl flex flex-col items-center justify-center transition-all">
-                        <span className="font-bold">Difficile</span>
-                        <span className="text-xs opacity-70">{formatTimeDelta(intervals.hard)}</span>
-                      </button>
-                      <button onClick={() => handleReview('good')} className="bg-blue-500/10 hover:bg-blue-500 text-blue-400 hover:text-white py-3 rounded-xl flex flex-col items-center justify-center transition-all">
-                        <span className="font-bold">Correct</span>
-                        <span className="text-xs opacity-70">{formatTimeDelta(intervals.good)}</span>
-                      </button>
-                      <button onClick={() => handleReview('easy')} className="bg-green-500/10 hover:bg-green-500 text-green-400 hover:text-white py-3 rounded-xl flex flex-col items-center justify-center transition-all">
-                        <span className="font-bold">Facile</span>
-                        <span className="text-xs opacity-70">{formatTimeDelta(intervals.easy)}</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+            return (
+                <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    width={size} 
+                    height={size} 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke={color} 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    className={className}
+                >
+                    {icons[name] || <circle cx="12" cy="12" r="10" />}
+                </svg>
             );
-          })}
-        </div>
-      )}
-    </div>
-  );
+        };
 
-  const ResourcesView = () => (
-    <div className="space-y-6">
-       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-white">Mes Cours & Flashcards</h2>
-        {/* Le bouton Ajouter est maintenant dans la Sidebar */}
-      </div>
+        const SUBJECTS = [
+            { id: 'maths', name: 'Mathématiques', color: '#8884d8', icon: 'Brain' },
+            { id: 'pc', name: 'Physique-Chimie', color: '#82ca9d', icon: 'Zap' },
+            { id: 's2i', name: 'S2I', color: '#ffc658', icon: 'Settings' },
+            { id: 'info', name: 'Informatique', color: '#ff7300', icon: 'LayoutDashboard' }
+        ];
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {topics.map(topic => (
-          <div key={topic.id} className="bg-slate-800/40 p-4 rounded-xl border border-white/5 hover:bg-slate-800/60 transition-colors flex flex-col">
-            <div className="flex justify-between items-start mb-2">
-              <span className={`px-2 py-1 rounded text-xs font-bold uppercase bg-opacity-20`} style={{ backgroundColor: SUBJECTS.find(s=>s.id===topic.subject).color + '33', color: SUBJECTS.find(s=>s.id===topic.subject).color }}>
-                {SUBJECTS.find(s=>s.id===topic.subject).name}
-              </span>
-              <div className="flex gap-2">
-                <button onClick={() => setAnalyzingTopic(topic)} className="text-cyan-500 hover:text-cyan-300" title="Analyser la courbe">
-                    <TrendingUp className="w-4 h-4" />
-                </button>
-                <button onClick={() => handleDeleteTopic(topic.id)} className="text-slate-500 hover:text-red-400">
-                    <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            <h4 className="font-bold text-white mb-2">{topic.title}</h4>
-            <div className="text-sm text-slate-400 line-clamp-3 mb-4 flex-1 whitespace-pre-wrap">
-              {topic.content}
-            </div>
-            <div className="flex items-center justify-between text-xs text-slate-500 mt-auto pt-3 border-t border-white/5">
-              <span className="flex items-center gap-1"><FileText className="w-3 h-3" /> Flashcard</span>
-              <span>Prochaine: {formatDate(topic.nextReview)}</span>
-            </div>
-          </div>
-        ))}
-      </div>
+        const INITIAL_TOPICS = [
+            { 
+                id: 1, 
+                subject: 'info', 
+                title: 'Exemple: Bienvenue sur NeuroFlow', 
+                level: 1, 
+                interval: 0,
+                nextReview: new Date().toISOString(), 
+                lastReviewed: null, 
+                content: 'Ceci est une carte exemple. Créez les vôtres via le bouton "Créer" dans le menu à gauche.', 
+                status: 'new',
+                history: []
+            }
+        ];
 
-      {/* Analysis Modal for a specific topic */}
-      {analyzingTopic && (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-             <div className="bg-slate-900 border border-white/10 w-full max-w-2xl rounded-2xl p-6 shadow-2xl">
-                <div className="flex justify-between items-center mb-6">
-                    <div>
-                        <h3 className="text-xl font-bold text-white">Analyse de la Rétention</h3>
-                        <p className="text-slate-400 text-sm">{analyzingTopic.title}</p>
-                    </div>
-                    <button onClick={() => setAnalyzingTopic(null)} className="text-slate-400 hover:text-white"><XCircle /></button>
-                </div>
+        const getNextIntervals = (currentInterval, currentLevel) => {
+            const safeInterval = Math.max(currentInterval, 1);
+            return {
+                again: 0,
+                hard: 1,
+                good: Math.ceil(safeInterval * 1.5 + currentLevel),
+                easy: Math.ceil(safeInterval * 2.5 + currentLevel * 2)
+            };
+        };
 
-                <div className="h-64 w-full bg-slate-800/30 rounded-xl p-4 mb-4">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={generateTopicCurveData(analyzingTopic)}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                            <XAxis dataKey="day" stroke="#94a3b8" interval={4} />
-                            <YAxis domain={[0, 100]} stroke="#94a3b8" label={{ value: 'Rétention %', angle: -90, position: 'insideLeft', fill: '#94a3b8' }} />
-                            <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: 'white' }} />
-                            <Legend />
-                            {/* Theoretical Natural Forgetting Curve (Red) */}
-                            <Line name="Oubli Théorique (Sans révision)" type="monotone" dataKey="theoretical" stroke="#ef4444" strokeWidth={2} dot={false} strokeDasharray="5 5" />
-                            {/* Real/Projected Retention with Reviews (Green/Blue) */}
-                            <Line name="Votre Rétention Réelle" type="monotone" dataKey="real" stroke="#22d3ee" strokeWidth={3} dot={false} />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </div>
+        const formatDate = (dateString) => {
+            const options = { weekday: 'short', day: 'numeric', month: 'short' };
+            return new Date(dateString).toLocaleDateString('fr-FR', options);
+        };
+
+        const formatTimeDelta = (days) => {
+            if (days === 0) return 'Auj.';
+            if (days === 1) return 'Demain';
+            return `+${days}j`;
+        };
+
+        const generateTopicCurveData = (topic) => {
+            const data = [];
+            const createdDate = topic.history.length > 0 ? new Date(topic.history[0].date) : new Date();
+            let currentStability = 2;
+            const maxDays = 30; 
+
+            for (let i = 0; i <= maxDays; i++) {
+                const dateAtI = new Date(createdDate);
+                dateAtI.setDate(createdDate.getDate() + i);
                 
-                <p className="text-sm text-slate-400 italic">
-                    * La courbe rouge montre comment vous auriez oublié cette information sans rappels. 
-                    La courbe bleue montre votre courbe "en dents de scie" actuelle grâce à vos révisions ({analyzingTopic.history.length} révisions effectuées).
-                </p>
-             </div>
-          </div>
-      )}
-    </div>
-  );
+                const theoreticalRetention = 100 * Math.exp(-i / 3);
 
-  // --- MAIN RENDER ---
+                let realRetention = 0;
+                const pastReviews = topic.history.filter(h => new Date(h.date) <= dateAtI);
+                
+                if (pastReviews.length === 0) {
+                    const daysSinceCreation = i;
+                    realRetention = 100 * Math.exp(-daysSinceCreation / currentStability);
+                } else {
+                    const lastReview = pastReviews[pastReviews.length - 1];
+                    const daysSinceLastReview = (dateAtI - new Date(lastReview.date)) / (1000 * 60 * 60 * 24);
+                    const effectiveStability = currentStability * Math.pow(1.8, pastReviews.length); 
+                    realRetention = 100 * Math.exp(-daysSinceLastReview / effectiveStability);
+                }
 
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-cyan-500/30">
-      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-900/20 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-900/20 rounded-full blur-[120px]" />
-      </div>
+                const isReviewDay = topic.history.some(h => {
+                    const d = new Date(h.date);
+                    return d.getDate() === dateAtI.getDate() && d.getMonth() === dateAtI.getMonth();
+                });
+                if (isReviewDay || i === 0) realRetention = 100;
 
-      <Sidebar />
+                data.push({
+                    day: `J+${i}`,
+                    theoretical: theoreticalRetention,
+                    real: realRetention
+                });
+            }
+            return data;
+        };
 
-      <main className="md:ml-64 p-6 md:p-10 relative z-1">
-        {activeTab === 'dashboard' && <DashboardView />}
-        {activeTab === 'study' && <StudyView />}
-        {activeTab === 'resources' && <ResourcesView />}
-        {activeTab === 'profile' && <ProfileView />}
-      </main>
-
-      {/* Add Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-2xl p-6 shadow-2xl animate-in zoom-in duration-200">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-white">Ajouter un Sujet / Carte</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white"><XCircle /></button>
-            </div>
+        function StudyFlow() {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [topics, setTopics] = useState(INITIAL_TOPICS);
+            const [userStats, setUserStats] = useState({ xp: 0, level: 1, streak: 1 });
             
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-slate-400 mb-1">Matière</label>
-                <div className="flex gap-2">
-                  {SUBJECTS.map(sub => (
-                    <button
-                      key={sub.id}
-                      onClick={() => setNewTopicForm({...newTopicForm, subject: sub.id})}
-                      className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all
-                        ${newTopicForm.subject === sub.id 
-                          ? `border-[${sub.color}] bg-[${sub.color}]/10 text-white`
-                          : 'border-slate-700 text-slate-400 hover:bg-slate-800'
-                        }`}
-                      style={{ borderColor: newTopicForm.subject === sub.id ? sub.color : '' }}
-                    >
-                      {sub.name.substring(0, 3)}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            const [selectedTopic, setSelectedTopic] = useState(null);
+            const [analyzingTopic, setAnalyzingTopic] = useState(null);
+            const [showAddModal, setShowAddModal] = useState(false);
+            const [newTopicForm, setNewTopicForm] = useState({ title: '', subject: 'maths', content: '' });
 
-              <div>
-                <label className="block text-sm text-slate-400 mb-1">Titre du chapitre / concept</label>
-                <input 
-                  type="text" 
-                  value={newTopicForm.title}
-                  onChange={(e) => setNewTopicForm({...newTopicForm, title: e.target.value})}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
-                  placeholder="Ex: Loi d'Ohm"
-                />
-              </div>
+            const today = new Date();
+            
+            const dueTopics = useMemo(() => {
+                return topics.filter(t => new Date(t.nextReview) <= today).sort((a,b) => new Date(a.nextReview) - new Date(b.nextReview));
+            }, [topics]);
 
-              <div>
-                <label className="block text-sm text-slate-400 mb-1">Contenu (Notes / Collage PDF)</label>
-                <textarea 
-                  rows={4}
-                  value={newTopicForm.content}
-                  onChange={(e) => setNewTopicForm({...newTopicForm, content: e.target.value})}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500 font-mono text-sm"
-                  placeholder="Tapez vos notes ou copiez-collez le contenu de vos Flashcards ici..."
-                />
-              </div>
+            const levelProgress = (userStats.xp % 1000) / 10; 
 
-              <div>
-                 <label className="block text-sm text-slate-400 mb-2">Ou importer un fichier (Simulé)</label>
-                 <label className="flex items-center justify-center w-full h-24 border-2 border-dashed border-slate-700 rounded-lg cursor-pointer hover:border-cyan-500 hover:bg-slate-800/50 transition-colors">
-                    <div className="flex flex-col items-center pt-5 pb-6">
-                        <Upload className="w-8 h-8 text-slate-500 mb-2" />
-                        <p className="text-xs text-slate-500">Cliquez pour ajouter PDF/Image</p>
+            const handleReview = (rating) => {
+                if (!selectedTopic) return;
+                const intervals = getNextIntervals(selectedTopic.interval || 0, selectedTopic.level);
+                let nextInterval = intervals[rating] || 0;
+                const nextDate = new Date();
+                nextDate.setDate(nextDate.getDate() + nextInterval);
+                let xpGain = rating === 'easy' ? 20 : rating === 'good' ? 15 : rating === 'hard' ? 10 : 5;
+
+                const updatedTopics = topics.map(t => {
+                    if (t.id === selectedTopic.id) {
+                        return { 
+                            ...t, 
+                            level: t.level + 1,
+                            interval: nextInterval,
+                            nextReview: nextDate.toISOString(),
+                            lastReviewed: new Date().toISOString(),
+                            status: 'reviewed',
+                            history: [...t.history, { date: new Date().toISOString(), rating }]
+                        };
+                    }
+                    return t;
+                });
+                setTopics(updatedTopics);
+                setUserStats(prev => ({ ...prev, xp: prev.xp + xpGain, level: Math.floor((prev.xp + xpGain) / 1000) + 1 }));
+                setSelectedTopic(null);
+            };
+
+            const handleAddTopic = () => {
+                if (!newTopicForm.title) return;
+                const newTopic = {
+                    id: Date.now(),
+                    subject: newTopicForm.subject,
+                    title: newTopicForm.title,
+                    level: 1,
+                    interval: 0,
+                    nextReview: new Date().toISOString(),
+                    lastReviewed: null,
+                    content: newTopicForm.content || 'Pas de contenu textuel.',
+                    status: 'new',
+                    history: []
+                };
+                setTopics([...topics, newTopic]);
+                setShowAddModal(false);
+                setNewTopicForm({ title: '', subject: 'maths', content: '' });
+            };
+
+            const Sidebar = () => (
+                <div className="w-20 md:w-64 bg-slate-900/90 backdrop-blur-xl border-r border-white/10 flex flex-col items-center md:items-start py-8 fixed h-full z-10 transition-all">
+                    <div className="px-6 mb-8 flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                            <Icon name="Brain" className="text-white w-6 h-6" />
+                        </div>
+                        <span className="hidden md:block font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">NeuroFlow</span>
                     </div>
-                    <input type="file" className="hidden" onChange={handleFileUpload} />
-                 </label>
-              </div>
-            </div>
 
-            <div className="mt-8 flex justify-end gap-3">
-              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-slate-400 hover:text-white">Annuler</button>
-              <button onClick={handleAddTopic} className="px-6 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-lg shadow-lg shadow-cyan-500/20">
-                Créer la carte
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                    <div className="px-4 mb-6 w-full">
+                        <button onClick={() => setShowAddModal(true)} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white p-3 rounded-xl font-bold shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 transition-all transform hover:scale-105">
+                            <Icon name="PlusCircle" className="w-5 h-5" />
+                            <span className="hidden md:block">Créer</span>
+                        </button>
+                    </div>
 
-    </div>
-  );
-}
+                    <nav className="flex-1 w-full px-4 space-y-2">
+                        {[
+                            { id: 'dashboard', icon: 'LayoutDashboard', label: 'Tableau de bord' },
+                            { id: 'study', icon: 'Layers', label: 'Mode Révision' },
+                            { id: 'resources', icon: 'FolderOpen', label: 'Mes Cours' },
+                            { id: 'profile', icon: 'User', label: 'Mon Profil' },
+                        ].map((item) => (
+                            <button key={item.id} onClick={() => setActiveTab(item.id)} className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 group ${activeTab === item.id ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
+                                <Icon name={item.icon} className={`w-5 h-5 ${activeTab === item.id ? 'animate-pulse' : ''}`} />
+                                <span className="hidden md:block font-medium">{item.label}</span>
+                                {activeTab === item.id && <div className="hidden md:block ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_10px_#60a5fa]" />}
+                            </button>
+                        ))}
+                    </nav>
 
-// Helpers for Recharts Legend (Must be component to avoid errors in strict mode sometimes)
-const Legend = (props) => {
-    const { payload } = props;
-    if (!payload) return null;
-    return (
-        <div className="flex justify-center gap-4 mt-2">
-            {payload.map((entry, index) => (
-            <div key={`item-${index}`} className="flex items-center text-xs text-slate-300">
-                <div className="w-3 h-3 mr-1 rounded-full" style={{ backgroundColor: entry.color }} />
-                {entry.value}
-            </div>
-            ))}
-        </div>
-    );
-};
+                    <div className="w-full px-4 mt-auto">
+                        <div className="bg-slate-800/50 rounded-xl p-4 border border-white/5">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="bg-yellow-500/20 p-2 rounded-lg text-yellow-400"><Icon name="Zap" className="w-4 h-4" /></div>
+                                <div className="hidden md:block">
+                                    <div className="text-xs text-slate-400">Niveau {userStats.level}</div>
+                                    <div className="text-sm font-bold text-white">{userStats.xp} XP</div>
+                                </div>
+                            </div>
+                            <div className="h-2 w-full bg-slate-700 rounded-full overflow-hidden">
+                                <div className="h-full bg-gradient-to-r from-yellow-400 to-orange-500 transition-all duration-1000" style={{ width: `${levelProgress}%` }} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
 
-// Icons import helpers
-const LayoutDashboard = ({className}) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>;
-const Layers = ({className}) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>;
-const BarChart2 = ({className}) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>;
-const FolderOpen = ({className}) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-3.25 7a2 2 0 0 1-1.8 1.18H7a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4h8a2 2 0 0 1 2 2v1"/></svg>;
+            const DashboardView = () => (
+                <div className="space-y-8 animate-in">
+                    <div className="flex justify-between items-end">
+                        <div>
+                            <h1 className="text-3xl font-bold text-white mb-2">Bonjour ! 🚀</h1>
+                            <p className="text-slate-400">{dueTopics.length > 0 ? <span>Tu as <span className="text-cyan-400 font-bold">{dueTopics.length} cartes</span> à réviser.</span> : "Tout est à jour."}</p>
+                        </div>
+                        <div className="flex items-center gap-2 bg-slate-800/50 px-4 py-2 rounded-full border border-white/10">
+                            <Icon name="Award" className="text-orange-400 w-5 h-5" />
+                            <span className="text-white font-bold">{userStats.streak} jours</span>
+                        </div>
+                    </div>
+                    <div className="bg-slate-800/40 backdrop-blur-md p-6 rounded-2xl border border-white/5">
+                        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><Icon name="Activity" className="text-cyan-400 w-5 h-5" /> Activité (Simulation)</h2>
+                        <div className="h-64 w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={[{day: 'Lun', val: 2}, {day: 'Mar', val: 5}, {day: 'Mer', val: 3}, {day: 'Jeu', val: 8}, {day: 'Ven', val: 1}, {day: 'Sam', val: 0}, {day: 'Dim', val: dueTopics.length}]}>
+                                    <defs>
+                                        <linearGradient id="colorActivity" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#22d3ee" stopOpacity={0.3}/><stop offset="95%" stopColor="#22d3ee" stopOpacity={0}/></linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                                    <XAxis dataKey="day" stroke="#94a3b8" />
+                                    <YAxis stroke="#94a3b8" />
+                                    <RechartsTooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: 'white' }} />
+                                    <Area type="monotone" dataKey="val" stroke="#22d3ee" strokeWidth={3} fill="url(#colorActivity)" />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const StudyView = () => (
+                <div className="max-w-3xl mx-auto space-y-6">
+                    <h2 className="text-2xl font-bold text-white">Session de Révision</h2>
+                    {dueTopics.length === 0 ? (
+                        <div className="text-center py-20 bg-slate-800/30 rounded-3xl border border-dashed border-slate-700">
+                            <div className="inline-block p-6 bg-green-500/10 rounded-full mb-4"><Icon name="CheckCircle" className="w-12 h-12 text-green-400" /></div>
+                            <h3 className="text-xl font-bold text-white mb-2">Tout est à jour !</h3>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {dueTopics.map(topic => {
+                                const subjectInfo = SUBJECTS.find(s => s.id === topic.subject);
+                                const intervals = getNextIntervals(topic.interval || 0, topic.level);
+                                return (
+                                    <div key={topic.id} className="bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl border border-white/5 hover:border-cyan-500/30 transition-all group relative overflow-hidden">
+                                        <div className="absolute top-0 left-0 w-1 h-full" style={{ backgroundColor: subjectInfo.color }} />
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div>
+                                                <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1 block">{subjectInfo.name}</span>
+                                                <h3 className="text-xl font-bold text-white">{topic.title}</h3>
+                                            </div>
+                                            <div className="bg-slate-950 p-2 rounded-lg text-slate-400 group-hover:text-cyan-400 transition-colors cursor-pointer" onClick={() => setSelectedTopic(topic)}><Icon name="ChevronRight" className="w-6 h-6" /></div>
+                                        </div>
+                                        <div className="flex items-center gap-4 text-sm text-slate-500">
+                                            <span className="flex items-center gap-1"><Icon name="Clock" className="w-3 h-3" /> Intervalle: {topic.interval}j</span>
+                                        </div>
+                                        {selectedTopic && selectedTopic.id === topic.id && (
+                                            <div className="absolute inset-0 bg-slate-900 z-20 p-6 flex flex-col animate-in">
+                                                <div className="flex-1 overflow-y-auto mb-4 custom-scrollbar">
+                                                    <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-4">
+                                                        <h3 className="text-lg font-bold text-white">{topic.title}</h3>
+                                                        <button onClick={() => setSelectedTopic(null)} className="text-slate-400 hover:text-white"><Icon name="XCircle" /></button>
+                                                    </div>
+                                                    <p className="text-slate-300 text-lg leading-relaxed whitespace-pre-wrap">{topic.content}</p>
+                                                </div>
+                                                <div className="grid grid-cols-4 gap-3 mt-auto pt-4 border-t border-white/10">
+                                                    <button onClick={() => handleReview('again')} className="bg-red-500/10 hover:bg-red-500 text-red-400 py-3 rounded-xl flex flex-col items-center"><span className="font-bold">À revoir</span><span className="text-xs">{formatTimeDelta(intervals.again)}</span></button>
+                                                    <button onClick={() => handleReview('hard')} className="bg-orange-500/10 hover:bg-orange-500 text-orange-400 py-3 rounded-xl flex flex-col items-center"><span className="font-bold">Difficile</span><span className="text-xs">{formatTimeDelta(intervals.hard)}</span></button>
+                                                    <button onClick={() => handleReview('good')} className="bg-blue-500/10 hover:bg-blue-500 text-blue-400 py-3 rounded-xl flex flex-col items-center"><span className="font-bold">Correct</span><span className="text-xs">{formatTimeDelta(intervals.good)}</span></button>
+                                                    <button onClick={() => handleReview('easy')} className="bg-green-500/10 hover:bg-green-500 text-green-400 py-3 rounded-xl flex flex-col items-center"><span className="font-bold">Facile</span><span className="text-xs">{formatTimeDelta(intervals.easy)}</span></button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            );
+
+            const ResourcesView = () => (
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-white">Mes Cours & Flashcards</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {topics.map(topic => (
+                            <div key={topic.id} className="bg-slate-800/40 p-4 rounded-xl border border-white/5 hover:bg-slate-800/60 transition-colors flex flex-col">
+                                <div className="flex justify-between items-start mb-2">
+                                    <span className={`px-2 py-1 rounded text-xs font-bold uppercase bg-opacity-20`} style={{ backgroundColor: SUBJECTS.find(s=>s.id===topic.subject).color + '33', color: SUBJECTS.find(s=>s.id===topic.subject).color }}>{SUBJECTS.find(s=>s.id===topic.subject).name}</span>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setAnalyzingTopic(topic)} className="text-cyan-500 hover:text-cyan-300"><Icon name="TrendingUp" className="w-4 h-4" /></button>
+                                        <button onClick={() => setTopics(topics.filter(t => t.id !== topic.id))} className="text-slate-500 hover:text-red-400"><Icon name="Trash2" className="w-4 h-4" /></button>
+                                    </div>
+                                </div>
+                                <h4 className="font-bold text-white mb-2">{topic.title}</h4>
+                                <div className="text-sm text-slate-400 line-clamp-3 mb-4 flex-1 whitespace-pre-wrap">{topic.content}</div>
+                                <div className="flex items-center justify-between text-xs text-slate-500 mt-auto pt-3 border-t border-white/5">
+                                    <span className="flex items-center gap-1"><Icon name="FileText" className="w-3 h-3" /> Flashcard</span>
+                                    <span>Prochaine: {formatDate(topic.nextReview)}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {analyzingTopic && (
+                        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in">
+                            <div className="bg-slate-900 border border-white/10 w-full max-w-2xl rounded-2xl p-6 shadow-2xl">
+                                <div className="flex justify-between items-center mb-6">
+                                    <div><h3 className="text-xl font-bold text-white">Analyse de la Rétention</h3><p className="text-slate-400 text-sm">{analyzingTopic.title}</p></div>
+                                    <button onClick={() => setAnalyzingTopic(null)} className="text-slate-400 hover:text-white"><Icon name="XCircle" /></button>
+                                </div>
+                                <div className="h-64 w-full bg-slate-800/30 rounded-xl p-4 mb-4">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={generateTopicCurveData(analyzingTopic)}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                                            <XAxis dataKey="day" stroke="#94a3b8" interval={4} />
+                                            <YAxis domain={[0, 100]} stroke="#94a3b8" />
+                                            <RechartsTooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: 'white' }} />
+                                            <Line type="monotone" dataKey="theoretical" stroke="#ef4444" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                                            <Line type="monotone" dataKey="real" stroke="#22d3ee" strokeWidth={3} dot={false} />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+
+            const ProfileView = () => (
+                <div className="space-y-8 animate-in">
+                    <h2 className="text-2xl font-bold text-white">Mon Profil</h2>
+                    <div className="bg-slate-800/60 backdrop-blur-md p-8 rounded-2xl border border-white/5 flex items-center gap-8">
+                        <div className="w-24 h-24 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-3xl font-bold text-white border-4 border-slate-900">EF</div>
+                        <div>
+                            <h3 className="text-2xl font-bold text-white mb-1">Étudiant Futuriste</h3>
+                            <div className="flex gap-3 mt-4">
+                                <span className="flex items-center gap-2 bg-blue-500/10 px-4 py-2 rounded-full border border-blue-500/20 text-blue-300"><Icon name="Zap" className="w-4 h-4" /> Niv. {userStats.level}</span>
+                                <span className="flex items-center gap-2 bg-orange-500/10 px-4 py-2 rounded-full border border-orange-500/20 text-orange-300"><Icon name="Award" className="w-4 h-4" /> {userStats.streak} Série</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen relative">
+                    <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+                        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-900/20 rounded-full blur-[120px]" />
+                        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-900/20 rounded-full blur-[120px]" />
+                    </div>
+                    <Sidebar />
+                    <main className="md:ml-64 p-6 md:p-10 relative z-1">
+                        {activeTab === 'dashboard' && <DashboardView />}
+                        {activeTab === 'study' && <StudyView />}
+                        {activeTab === 'resources' && <ResourcesView />}
+                        {activeTab === 'profile' && <ProfileView />}
+                    </main>
+
+                    {showAddModal && (
+                        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                            <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-2xl p-6 shadow-2xl animate-in">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="text-xl font-bold text-white">Ajouter un Sujet</h3>
+                                    <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white"><Icon name="XCircle" /></button>
+                                </div>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm text-slate-400 mb-1">Matière</label>
+                                        <div className="flex gap-2">
+                                            {SUBJECTS.map(sub => (
+                                                <button key={sub.id} onClick={() => setNewTopicForm({...newTopicForm, subject: sub.id})} className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all ${newTopicForm.subject === sub.id ? `border-[${sub.color}] bg-slate-700 text-white` : 'border-slate-700 text-slate-400 hover:bg-slate-800'}`} style={{ borderColor: newTopicForm.subject === sub.id ? sub.color : '' }}>{sub.name.substring(0, 3)}</button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div><label className="block text-sm text-slate-400 mb-1">Titre</label><input type="text" value={newTopicForm.title} onChange={(e) => setNewTopicForm({...newTopicForm, title: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white" placeholder="Titre..." /></div>
+                                    <div><label className="block text-sm text-slate-400 mb-1">Contenu</label><textarea rows={4} value={newTopicForm.content} onChange={(e) => setNewTopicForm({...newTopicForm, content: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white" placeholder="Contenu..." /></div>
+                                </div>
+                                <div className="mt-8 flex justify-end gap-3">
+                                    <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-slate-400">Annuler</button>
+                                    <button onClick={handleAddTopic} className="px-6 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold rounded-lg">Créer</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<StudyFlow />);
+    </script>
+</body>
+</html>
