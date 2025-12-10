@@ -3,63 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroFlow 3.0 - Répétition Espacée Ultime</title>
+    <title>NeuroFlow 5.0 - Auth & Persistance</title>
     
-    <!-- OUTILS (React, Tailwind, Recharts, Lucide, Babel) -->
+    <!-- OUTILS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
     <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
     <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
-    <!-- Canvas Confetti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <style>
-        /* Base & Scrollbar */
-        body { background-color: #0f172a; color: #f8fafc; font-family: 'Segoe UI', system-ui, sans-serif; overflow-x: hidden; transition: background-color 0.5s ease; }
+        body { background-color: #0f172a; color: #f8fafc; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; transition: background-color 0.5s ease; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
         
-        /* Effets Glassmorphism */
         .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
         .glass-panel { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
         
-        /* Animations */
-        .perspective-1000 { perspective: 1000px; }
-        .transform-style-3d { transform-style: preserve-3d; }
-        .backface-hidden { backface-visibility: hidden; }
-        .rotate-y-180 { transform: rotateY(180deg); }
-        
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .animate-slide-up { animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
+        /* Input Autofill Fix for dark mode */
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus, 
+        input:-webkit-autofill:active{
+            -webkit-box-shadow: 0 0 0 30px #0f172a inset !important;
+            -webkit-text-fill-color: white !important;
+        }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useRef } = React;
-        const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } = Recharts;
+        const { useState, useEffect, useMemo } = React;
+        const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = Recharts;
 
-        // --- DONNÉES DE JEU (Gamification) ---
-        
+        // --- CONSTANTES & DATA ---
+        const DB_KEY = 'neuroflow_db_v1';
+
         const LEVELS = [
             { lvl: 1, xp: 0, title: "Novice", reward: { type: 'theme', id: 'blue', name: 'Thème Océan' } },
             { lvl: 2, xp: 200, title: "Apprenti", reward: { type: 'avatar', id: '🦁', name: 'Avatar Lion' } },
             { lvl: 3, xp: 500, title: "Initié", reward: { type: 'theme', id: 'purple', name: 'Thème Néon' } },
             { lvl: 4, xp: 1000, title: "Expert", reward: { type: 'trophy', id: '🥉', name: 'Médaille Bronze' } },
             { lvl: 5, xp: 2000, title: "Maître", reward: { type: 'avatar', id: '🚀', name: 'Avatar Astronaute' } },
-            { lvl: 6, xp: 3500, title: "Grand Maître", reward: { type: 'theme', id: 'gold', name: 'Thème Royal' } },
             { lvl: 10, xp: 10000, title: "Légende", reward: { type: 'trophy', id: '🏆', name: 'Coupe Ultime' } }
         ];
 
         const THEMES = {
-            blue: { bg: 'from-cyan-500 to-blue-600', text: 'text-cyan-400', border: 'border-cyan-500', glow: 'shadow-cyan-500/50' },
-            purple: { bg: 'from-purple-500 to-pink-600', text: 'text-purple-400', border: 'border-purple-500', glow: 'shadow-purple-500/50' },
-            gold: { bg: 'from-yellow-400 to-amber-600', text: 'text-amber-400', border: 'border-amber-500', glow: 'shadow-amber-500/50' },
-            green: { bg: 'from-emerald-400 to-green-600', text: 'text-emerald-400', border: 'border-emerald-500', glow: 'shadow-emerald-500/50' }
+            blue: { bg: 'from-cyan-500 to-blue-600', text: 'text-cyan-400', border: 'border-cyan-500' },
+            purple: { bg: 'from-purple-500 to-pink-600', text: 'text-purple-400', border: 'border-purple-500' },
+            gold: { bg: 'from-yellow-400 to-amber-600', text: 'text-amber-400', border: 'border-amber-500' },
+            green: { bg: 'from-emerald-400 to-green-600', text: 'text-emerald-400', border: 'border-emerald-500' }
         };
 
         const SUBJECTS = [
@@ -69,19 +69,7 @@
             { id: 's2i', name: 'S2I', color: '#10b981', gradient: 'from-emerald-400 to-teal-500' },
         ];
 
-        const INITIAL_DECKS = [
-            {
-                id: 1,
-                title: "Dérivées Usuelles",
-                subject: "maths",
-                cards: [
-                    { id: 1, q: "Dérivée de x² ?", a: "2x", level: 1, interval: 0, nextReview: new Date().toISOString(), history: [] },
-                    { id: 2, q: "Dérivée de ln(x) ?", a: "1/x", level: 1, interval: 0, nextReview: new Date().toISOString(), history: [] }
-                ]
-            }
-        ];
-
-        // --- UI ICONS ---
+        // --- ICONS ---
         const Icon = ({ path, className }) => (
             <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 {path}
@@ -93,133 +81,248 @@
             x: <path d="M18 6L6 18M6 6l12 12"/>,
             chart: <path d="M12 20V10M18 20V4M6 20v-4"/>,
             user: <g><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></g>,
-            edit: <g><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></g>,
-            play: <polygon points="5 3 19 12 5 21 5 3"/>,
+            check: <path d="M20 6L9 17l-5-5"/>,
             lock: <g><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></g>,
-            gift: <g><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></g>
+            gift: <g><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></g>,
+            logOut: <g><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></g>,
+            lockOpen: <g><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></g>
         };
 
-        // --- LOGIQUE MÉMOIRE ---
-        const getRetentionCurves = (deck) => {
-            if (!deck || deck.cards.length === 0) return [];
-            const data = [];
-            const decay = 3; // Demi-vie théorique
+        // --- AUTH COMPONENT ---
+        const AuthView = ({ onLogin }) => {
+            const [isLogin, setIsLogin] = useState(true);
+            const [formData, setFormData] = useState({ username: '', password: '' });
+            const [error, setError] = useState('');
 
-            for (let i = 0; i <= 30; i++) {
-                const dayLabel = `J+${i}`;
-                const theoRet = 100 * Math.exp(-i / decay);
-                let sumRealRet = 0;
+            const handleSubmit = () => {
+                setError('');
+                if(!formData.username || !formData.password) {
+                    setError("Veuillez remplir tous les champs");
+                    return;
+                }
+
+                const db = JSON.parse(localStorage.getItem(DB_KEY) || '{}');
                 
-                deck.cards.forEach(card => {
-                    const lastReview = card.history.length > 0 ? new Date(card.history[card.history.length-1].date) : new Date();
-                    const simulatedDate = new Date();
-                    simulatedDate.setDate(new Date().getDate() + i);
-                    
-                    if (simulatedDate < lastReview) sumRealRet += 100;
-                    else {
-                        const daysDiff = (simulatedDate - lastReview) / (1000 * 60 * 60 * 24);
-                        const stability = Math.max(card.level * 3, 1); 
-                        const ret = 100 * Math.exp(-daysDiff / stability);
-                        sumRealRet += ret;
+                if (isLogin) {
+                    // LOGIN
+                    const user = db[formData.username];
+                    if (user && user.password === formData.password) {
+                        onLogin(formData.username, user.data);
+                    } else {
+                        setError("Identifiants incorrects");
                     }
-                });
-
-                data.push({
-                    day: dayLabel,
-                    theorique: Math.round(theoRet),
-                    reelle: Math.round(sumRealRet / deck.cards.length)
-                });
-            }
-            return data;
-        };
-
-        const calculateNextReview = (card, rating) => {
-            let interval = 1;
-            let level = card.level;
-            
-            if (rating === 1) { level = 1; interval = 0; }
-            else if (rating === 2) { interval = 1; }
-            else {
-                if (level === 1) interval = 3;
-                else if (level === 2) interval = 6;
-                else interval = Math.round(card.interval * (rating === 4 ? 2.5 : 1.8));
-                level++;
-            }
-            
-            const nextDate = new Date();
-            nextDate.setDate(nextDate.getDate() + interval);
-            return { ...card, level, interval, nextReview: nextDate.toISOString(), history: [...card.history, { date: new Date().toISOString(), rating }] };
-        };
-
-        // --- COMPOSANT PRINCIPAL ---
-        function NeuroFlowUltimate() {
-            const [view, setView] = useState('home');
-            const [user, setUser] = useState({ name: "Alexandre", xp: 120, avatar: "👨‍🎓", theme: "blue", trophies: [] });
-            const [decks, setDecks] = useState(INITIAL_DECKS);
-            const [selectedDeck, setSelectedDeck] = useState(null);
-            const [session, setSession] = useState(null);
-            const [builder, setBuilder] = useState({ title: '', subject: 'maths', cards: [] });
-            const [tempCard, setTempCard] = useState({ q: '', a: '' });
-
-            // Levels Logic
-            const currentLevel = LEVELS.slice().reverse().find(l => user.xp >= l.xp) || LEVELS[0];
-            const nextLevel = LEVELS.find(l => l.lvl === currentLevel.lvl + 1);
-            const progress = nextLevel ? ((user.xp - currentLevel.xp) / (nextLevel.xp - currentLevel.xp)) * 100 : 100;
-            const activeTheme = THEMES[user.theme] || THEMES.blue;
-
-            // FX
-            const triggerConfetti = () => confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#38bdf8', '#818cf8', '#34d399'] });
-
-            // Actions
-            const saveDeck = () => {
-                if (!builder.title) return;
-                const newDeck = { id: Date.now(), ...builder, cards: builder.cards.map(c => ({...c, level: 1, interval: 0, nextReview: new Date().toISOString(), history: []})) };
-                setDecks([...decks, newDeck]);
-                setBuilder({ title: '', subject: 'maths', cards: [] });
-                setView('home');
-                triggerConfetti();
+                } else {
+                    // REGISTER
+                    if (db[formData.username]) {
+                        setError("Ce pseudo est déjà pris");
+                        return;
+                    }
+                    // Création structure initiale
+                    const newUser = {
+                        password: formData.password,
+                        data: {
+                            profile: { name: formData.username, xp: 0, avatar: "👤", theme: "blue" },
+                            courses: []
+                        }
+                    };
+                    db[formData.username] = newUser;
+                    localStorage.setItem(DB_KEY, JSON.stringify(db));
+                    onLogin(formData.username, newUser.data);
+                }
             };
 
-            const rateCard = (rating) => {
-                if (!session) return;
-                const card = session.queue[session.idx];
-                const updatedCard = calculateNextReview(card, rating);
+            return (
+                <div className="min-h-screen flex items-center justify-center p-4 bg-slate-900 relative overflow-hidden">
+                    {/* Background Ambience */}
+                    <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+                        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-600/20 rounded-full blur-[100px]"></div>
+                        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-purple-600/20 rounded-full blur-[100px]"></div>
+                    </div>
+
+                    <div className="glass-panel w-full max-w-md p-8 rounded-2xl animate-slide-up relative z-10">
+                        <div className="text-center mb-8">
+                            <div className="w-16 h-16 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-xl mx-auto flex items-center justify-center mb-4 shadow-lg shadow-cyan-500/30">
+                                <span className="text-3xl">🧠</span>
+                            </div>
+                            <h1 className="text-3xl font-bold text-white mb-2">NeuroFlow</h1>
+                            <p className="text-slate-400">Optimisez votre mémoire.</p>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-slate-400 text-sm mb-1">Pseudo</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none transition"
+                                    value={formData.username}
+                                    onChange={e => setFormData({...formData, username: e.target.value})}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-slate-400 text-sm mb-1">Mot de passe</label>
+                                <input 
+                                    type="password" 
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none transition"
+                                    value={formData.password}
+                                    onChange={e => setFormData({...formData, password: e.target.value})}
+                                />
+                            </div>
+
+                            {error && <div className="text-rose-400 text-sm text-center bg-rose-500/10 py-2 rounded-lg">{error}</div>}
+
+                            <button 
+                                onClick={handleSubmit}
+                                className="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-cyan-500/20 transition transform active:scale-95"
+                            >
+                                {isLogin ? "Se connecter" : "Créer un compte"}
+                            </button>
+
+                            <div className="text-center pt-4 border-t border-slate-700">
+                                <button 
+                                    onClick={() => { setIsLogin(!isLogin); setError(''); }}
+                                    className="text-slate-400 hover:text-white text-sm transition"
+                                >
+                                    {isLogin ? "Pas encore de compte ? Inscrivez-vous" : "Déjà un compte ? Connectez-vous"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- MAIN APP ---
+        function NeuroFlowApp() {
+            // Global State
+            const [sessionUsername, setSessionUsername] = useState(null);
+            
+            // App Data State (only loaded when logged in)
+            const [userProfile, setUserProfile] = useState(null);
+            const [courses, setCourses] = useState([]);
+            
+            // UI State
+            const [view, setView] = useState('home');
+            const [selectedCourse, setSelectedCourse] = useState(null);
+            const [newCourse, setNewCourse] = useState({ title: '', subject: 'maths' });
+
+            // Persistance : Sauvegarder dès que userProfile ou courses changent
+            useEffect(() => {
+                if (sessionUsername && userProfile) {
+                    const db = JSON.parse(localStorage.getItem(DB_KEY) || '{}');
+                    if (db[sessionUsername]) {
+                        db[sessionUsername].data = {
+                            profile: userProfile,
+                            courses: courses
+                        };
+                        localStorage.setItem(DB_KEY, JSON.stringify(db));
+                    }
+                }
+            }, [userProfile, courses, sessionUsername]);
+
+            const handleLogin = (username, data) => {
+                setSessionUsername(username);
+                setUserProfile(data.profile);
+                setCourses(data.courses);
+                setView('home');
+            };
+
+            const handleLogout = () => {
+                setSessionUsername(null);
+                setUserProfile(null);
+                setCourses([]);
+                setView('login');
+            };
+
+            // Si pas connecté, afficher Auth
+            if (!sessionUsername) {
+                return <AuthView onLogin={handleLogin} />;
+            }
+
+            // --- CALCULS DERIVÉS ---
+            const activeTheme = THEMES[userProfile.theme] || THEMES.blue;
+            const currentLevel = LEVELS.slice().reverse().find(l => userProfile.xp >= l.xp) || LEVELS[0];
+            const nextLevel = LEVELS.find(l => l.lvl === currentLevel.lvl + 1);
+            const progress = nextLevel ? ((userProfile.xp - currentLevel.xp) / (nextLevel.xp - currentLevel.xp)) * 100 : 100;
+
+            // --- LOGIQUE METIER ---
+            
+            const handleCreateCourse = () => {
+                if (!newCourse.title) return;
+                const course = {
+                    id: Date.now(),
+                    title: newCourse.title,
+                    subject: newCourse.subject,
+                    created: new Date().toISOString(),
+                    history: [new Date().toISOString()] // Création = 1ère vue
+                };
+                setCourses([...courses, course]);
+                setNewCourse({ title: '', subject: 'maths' });
+                setView('home');
+                confetti({ particleCount: 50, spread: 50, origin: { y: 0.6 } });
+            };
+
+            const markAsReviewed = (course) => {
+                const now = new Date().toISOString();
                 
-                // Save Card
-                setDecks(prev => prev.map(d => d.id === session.deckId ? { ...d, cards: d.cards.map(c => c.id === card.id ? updatedCard : c) } : d));
+                // Update Course
+                const updatedCourses = courses.map(c => {
+                    if (c.id === course.id) {
+                        return { ...c, history: [...c.history, now] };
+                    }
+                    return c;
+                });
+                setCourses(updatedCourses);
+
+                // Update XP
+                const xpGain = 50; 
+                const newXp = userProfile.xp + xpGain;
                 
-                // Add XP & Check Level Up
-                const xpGain = [0, 5, 10, 15, 20][rating];
-                const newXp = user.xp + xpGain;
-                
-                // Check if level up happened
+                // Level Up Check
                 const newLvlObj = LEVELS.slice().reverse().find(l => newXp >= l.xp);
                 if (newLvlObj.lvl > currentLevel.lvl) {
-                    alert(`NIVEAU SUPÉRIEUR ! Vous êtes niveau ${newLvlObj.lvl}.\nRécompense débloquée : ${newLvlObj.reward.name}`);
-                    triggerConfetti();
-                }
-
-                setUser(prev => ({ ...prev, xp: newXp }));
-
-                // Next
-                if (session.idx < session.queue.length - 1) {
-                    setSession({ ...session, idx: session.idx + 1, flipped: false });
+                    confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+                    alert(`NIVEAU SUPÉRIEUR ! Vous êtes niveau ${newLvlObj.lvl}.\nRécompense : ${newLvlObj.reward.name}`);
                 } else {
-                    setView('home');
-                    triggerConfetti();
+                    confetti({ particleCount: 30, spread: 40, origin: { y: 0.7 }, colors: ['#38bdf8'] });
                 }
+
+                setUserProfile(prev => ({ ...prev, xp: newXp }));
             };
 
-            // Custom Tooltip pour la courbe
+            const getRetentionCurves = (course) => {
+                const data = [];
+                const now = new Date();
+                const reviewCount = course.history.length;
+                const stability = 2 * Math.pow(1.8, reviewCount - 1); 
+                const lastReviewDate = new Date(course.history[course.history.length - 1]);
+
+                for (let i = 0; i <= 30; i++) {
+                    const projectedDate = new Date();
+                    projectedDate.setDate(now.getDate() + i);
+                    
+                    const daysSinceLastReview = (projectedDate - lastReviewDate) / (1000 * 60 * 60 * 24);
+                    let realRetention = 100 * Math.exp(-daysSinceLastReview / stability);
+                    if (daysSinceLastReview < 0) realRetention = 100;
+
+                    const daysSinceCreation = (projectedDate - new Date(course.created)) / (1000 * 60 * 60 * 24);
+                    const theoreticalRetention = 100 * Math.exp(-daysSinceCreation / 2); 
+
+                    data.push({
+                        day: `J+${i}`,
+                        real: Math.round(Math.max(0, Math.min(100, realRetention))),
+                        theo: Math.round(Math.max(0, Math.min(100, theoreticalRetention)))
+                    });
+                }
+                return data;
+            };
+
             const CustomTooltip = ({ active, payload, label }) => {
                 if (active && payload && payload.length) {
-                    const retention = payload[1].value;
-                    const oubli = 100 - retention;
                     return (
                         <div className="bg-slate-900 border border-slate-600 p-3 rounded-lg shadow-xl text-sm">
                             <p className="font-bold text-white mb-2">{label}</p>
-                            <p className="text-cyan-400">Rétention : {retention}%</p>
-                            <p className="text-rose-400 font-bold">Oubli : {oubli}%</p>
+                            <p className="text-cyan-400">Rétention Actuelle : {payload[0].value}%</p>
+                            <p className="text-rose-400 text-xs">Sans révision : {payload[1].value}%</p>
                         </div>
                     );
                 }
@@ -230,92 +333,98 @@
 
             const renderHome = () => (
                 <div className="max-w-6xl mx-auto p-6 space-y-8 animate-slide-up">
-                    {/* Header Joueur */}
+                    {/* Header */}
                     <div className="glass-panel rounded-2xl p-6 relative overflow-hidden flex flex-col md:flex-row items-center gap-6">
                         <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br ${activeTheme.bg} opacity-20 rounded-full blur-[80px] -mr-16 -mt-16 pointer-events-none`}></div>
                         
                         <div className={`w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center text-4xl border-4 ${activeTheme.border} shadow-lg z-10`}>
-                            {user.avatar}
+                            {userProfile.avatar}
                         </div>
                         
                         <div className="flex-1 z-10 w-full text-center md:text-left">
-                            <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
-                                <h1 className="text-3xl font-bold text-white">{user.name}</h1>
-                                <span className={`px-2 py-0.5 rounded text-xs font-bold border ${activeTheme.border} ${activeTheme.text} bg-slate-900/50`}>Niv. {currentLevel.lvl}</span>
-                            </div>
-                            <div className="text-slate-400 text-sm mb-3">{currentLevel.title}</div>
-                            
-                            {/* Barre XP */}
+                            <h1 className="text-3xl font-bold text-white mb-1">{userProfile.name}</h1>
+                            <div className="text-slate-400 text-sm mb-3">{currentLevel.title} (Niv. {currentLevel.lvl})</div>
                             <div className="relative h-4 bg-slate-800 rounded-full overflow-hidden border border-slate-700 w-full max-w-md mx-auto md:mx-0">
                                 <div className={`h-full bg-gradient-to-r ${activeTheme.bg} transition-all duration-1000`} style={{ width: `${progress}%` }}></div>
-                            </div>
-                            <div className="flex justify-between text-xs text-slate-500 mt-1 max-w-md mx-auto md:mx-0">
-                                <span>{user.xp} XP</span>
-                                <span>Prochain: {nextLevel ? nextLevel.reward.name : 'Max'}</span>
                             </div>
                         </div>
 
                         <div className="flex gap-3 z-10">
-                            <button onClick={() => setView('profile')} className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 transition">
+                            <button onClick={() => setView('profile')} className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 transition" title="Profil">
                                 <Icon path={ICONS.user} className="w-6 h-6 text-slate-300" />
                             </button>
+                            <button onClick={handleLogout} className="p-3 bg-slate-800 hover:bg-red-500/20 hover:text-red-400 rounded-xl border border-slate-700 transition" title="Déconnexion">
+                                <Icon path={ICONS.logOut} className="w-6 h-6" />
+                            </button>
                             <button onClick={() => setView('builder')} className={`px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r ${activeTheme.bg} shadow-lg hover:opacity-90 flex items-center gap-2 transition`}>
-                                <Icon path={ICONS.plus} className="w-5 h-5" /> Créer
+                                <Icon path={ICONS.plus} className="w-5 h-5" /> Nouveau Cours
                             </button>
                         </div>
                     </div>
 
-                    {/* Liste Decks */}
+                    {/* Courses Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {decks.map(deck => {
-                            const sub = SUBJECTS.find(s => s.id === deck.subject);
-                            const due = deck.cards.filter(c => new Date(c.nextReview) <= new Date()).length;
-                            const isSelected = selectedDeck && selectedDeck.id === deck.id;
+                        {courses.length === 0 ? (
+                            <div className="col-span-full text-center py-20 text-slate-500 glass rounded-2xl border-dashed border-2 border-slate-700">
+                                <div className="text-4xl mb-4">📚</div>
+                                <p>Aucun cours pour le moment.</p>
+                                <button onClick={() => setView('builder')} className="mt-4 text-cyan-400 hover:underline">Créer mon premier cours</button>
+                            </div>
+                        ) : courses.map(course => {
+                            const sub = SUBJECTS.find(s => s.id === course.subject);
+                            const isSelected = selectedCourse && selectedCourse.id === course.id;
+                            const lastRev = new Date(course.history[course.history.length - 1]);
+                            const isReviewedToday = lastRev.toDateString() === new Date().toDateString();
 
                             return (
-                                <div key={deck.id} className="glass rounded-2xl p-6 relative overflow-hidden group hover:border-slate-500 transition-all">
+                                <div key={course.id} className={`glass rounded-2xl p-6 relative group transition-all duration-300 ${isSelected ? 'border-cyan-500/50 bg-slate-800/80' : 'hover:border-slate-500'}`}>
                                     <div className={`absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b ${sub.gradient}`}></div>
                                     
-                                    <div className="flex justify-between items-start mb-4 pl-4">
-                                        <span className="text-xs font-bold uppercase text-slate-400">{sub.name}</span>
-                                        <button onClick={() => setSelectedDeck(isSelected ? null : deck)} className={`text-slate-500 hover:${activeTheme.text} transition`}>
+                                    <div className="pl-4 mb-4 flex justify-between items-start">
+                                        <div>
+                                            <span className="text-xs font-bold uppercase text-slate-400">{sub.name}</span>
+                                            <h3 className="text-xl font-bold text-white mt-1">{course.title}</h3>
+                                        </div>
+                                        <button onClick={() => setSelectedCourse(isSelected ? null : course)} className={`text-slate-500 hover:${activeTheme.text} transition`}>
                                             <Icon path={ICONS.chart} className="w-5 h-5" />
                                         </button>
                                     </div>
 
-                                    <h3 className="text-xl font-bold text-white pl-4 mb-2">{deck.title}</h3>
-                                    <p className="pl-4 text-sm text-slate-400 mb-6">{deck.cards.length} cartes • <span className={due > 0 ? "text-rose-400 font-bold" : "text-green-400"}>{due} à faire</span></p>
-
                                     {isSelected && (
-                                        <div className="h-48 bg-slate-900/50 rounded-lg p-2 mb-4 animate-slide-up border border-slate-700 mx-4">
+                                        <div className="h-48 bg-slate-900/50 rounded-lg p-2 mb-4 animate-slide-up border border-slate-700 ml-4">
                                             <ResponsiveContainer width="100%" height="100%">
-                                                <LineChart data={getRetentionCurves(deck)}>
+                                                <LineChart data={getRetentionCurves(course)}>
                                                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                                                     <XAxis hide />
                                                     <YAxis hide domain={[0, 100]} />
                                                     <Tooltip content={<CustomTooltip />} />
-                                                    <Line type="monotone" dataKey="theorique" stroke="#ef4444" strokeWidth={2} dot={false} strokeDasharray="5 5" />
-                                                    <Line type="monotone" dataKey="reelle" stroke="#22d3ee" strokeWidth={3} dot={false} />
+                                                    <Line type="monotone" dataKey="real" stroke="#22d3ee" strokeWidth={3} dot={false} />
+                                                    <Line type="monotone" dataKey="theo" stroke="#ef4444" strokeWidth={2} dot={false} strokeDasharray="5 5" />
                                                 </LineChart>
                                             </ResponsiveContainer>
-                                            <p className="text-center text-xs text-slate-500 mt-1">Rouge: Théorique | Bleu: Réel</p>
+                                            <div className="flex justify-center gap-4 text-xs text-slate-500 mt-2">
+                                                <span className="flex items-center gap-1"><div className="w-2 h-2 bg-cyan-400 rounded-full"></div> Réelle</span>
+                                                <span className="flex items-center gap-1"><div className="w-2 h-2 bg-rose-500 rounded-full"></div> Théorique</span>
+                                            </div>
                                         </div>
                                     )}
 
                                     <div className="pl-4">
-                                        <button 
-                                            onClick={() => {
-                                                const queue = deck.cards.filter(c => new Date(c.nextReview) <= new Date());
-                                                if (queue.length === 0) return alert("Rien à réviser !");
-                                                setSession({ deckId: deck.id, queue, idx: 0, flipped: false });
-                                                setView('session');
-                                            }}
-                                            disabled={due === 0}
-                                            className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition 
-                                                ${due > 0 ? `bg-gradient-to-r ${activeTheme.bg} text-white shadow-lg` : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'}`}
-                                        >
-                                            {due > 0 ? <span className="flex items-center gap-2"><Icon path={ICONS.play} className="w-4 h-4"/> Réviser</span> : "Terminé ✅"}
-                                        </button>
+                                        {isReviewedToday ? (
+                                            <div className="w-full py-3 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 font-bold flex items-center justify-center gap-2 cursor-default">
+                                                <Icon path={ICONS.check} className="w-5 h-5" /> Révisé aujourd'hui
+                                            </div>
+                                        ) : (
+                                            <button 
+                                                onClick={() => markAsReviewed(course)}
+                                                className={`w-full py-3 rounded-xl font-bold text-white bg-gradient-to-r ${activeTheme.bg} shadow-lg hover:opacity-90 flex items-center justify-center gap-2 transition active:scale-95`}
+                                            >
+                                                <Icon path={ICONS.check} className="w-5 h-5" /> J'ai révisé ce cours
+                                            </button>
+                                        )}
+                                        <p className="text-center text-xs text-slate-500 mt-2">
+                                            Dernière: {new Date(course.history[course.history.length-1]).toLocaleDateString()}
+                                        </p>
                                     </div>
                                 </div>
                             );
@@ -324,161 +433,90 @@
                 </div>
             );
 
+            const renderBuilder = () => (
+                <div className="fixed inset-0 bg-slate-900/95 z-50 flex items-center justify-center p-4">
+                    <div className="bg-slate-800 w-full max-w-lg rounded-2xl border border-slate-700 shadow-2xl p-6 animate-slide-up">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-2xl font-bold text-white">Ajouter un Cours</h2>
+                            <button onClick={() => setView('home')} className="text-slate-400 hover:text-white"><Icon path={ICONS.x} className="w-6 h-6"/></button>
+                        </div>
+                        <div className="space-y-6">
+                            <div>
+                                <label className="block text-slate-400 text-sm mb-2">Titre du cours</label>
+                                <input type="text" className="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none" placeholder="Ex: Thermodynamique" value={newCourse.title} onChange={e => setNewCourse({...newCourse, title: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-slate-400 text-sm mb-2">Matière</label>
+                                <div className="flex gap-2">
+                                    {SUBJECTS.map(s => (
+                                        <button key={s.id} onClick={() => setNewCourse({...newCourse, subject: s.id})} className={`w-10 h-10 rounded-full border-2 transition flex items-center justify-center ${newCourse.subject === s.id ? 'border-white scale-110' : 'border-transparent opacity-50'}`} style={{ backgroundColor: s.color }} title={s.name} />
+                                    ))}
+                                </div>
+                            </div>
+                            <button onClick={handleCreateCourse} className={`w-full py-3 rounded-xl font-bold text-white bg-gradient-to-r ${activeTheme.bg} hover:opacity-90 transition`}>Créer le cours</button>
+                        </div>
+                    </div>
+                </div>
+            );
+
             const renderProfile = () => (
                 <div className="fixed inset-0 bg-slate-900/95 z-50 flex items-center justify-center p-4">
                     <div className="bg-slate-800 w-full max-w-2xl rounded-2xl border border-slate-700 shadow-2xl flex flex-col max-h-[90vh] animate-slide-up">
                         <div className="p-6 border-b border-slate-700 flex justify-between items-center">
-                            <h2 className="text-2xl font-bold text-white">Profil & Inventaire</h2>
+                            <h2 className="text-2xl font-bold text-white">Personnalisation</h2>
                             <button onClick={() => setView('home')} className="text-slate-400 hover:text-white"><Icon path={ICONS.x} className="w-6 h-6"/></button>
                         </div>
-                        
                         <div className="p-6 overflow-y-auto custom-scrollbar space-y-8">
-                            {/* Pseudo */}
-                            <div>
-                                <label className="block text-slate-400 text-sm mb-2">Votre Pseudo</label>
-                                <input type="text" value={user.name} onChange={e => setUser({...user, name: e.target.value})} className="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none" />
-                            </div>
-
                             {/* Avatars */}
                             <div>
                                 <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Icon path={ICONS.user} className="w-5 h-5 text-cyan-400"/> Avatars</h3>
                                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
                                     {['👨‍🎓', '👩‍🎓', '🧠', '🦁', '🚀', '👑'].map((emoji, i) => {
-                                        // Simple logique : débloqué si on a atteint un certain niveau ou par défaut
                                         const locked = i > 1 && currentLevel.lvl < (i + 1); 
                                         return (
-                                            <button 
-                                                key={i} 
-                                                disabled={locked}
-                                                onClick={() => setUser({...user, avatar: emoji})}
-                                                className={`aspect-square rounded-xl flex items-center justify-center text-2xl border-2 transition relative
-                                                    ${user.avatar === emoji ? `border-${activeTheme.border.split('-')[1]}-500 bg-slate-700` : 'border-slate-700 bg-slate-900'}
-                                                    ${locked ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-500'}
-                                                `}
-                                            >
+                                            <button key={i} disabled={locked} onClick={() => setUserProfile({...userProfile, avatar: emoji})} className={`aspect-square rounded-xl flex items-center justify-center text-2xl border-2 transition relative ${userProfile.avatar === emoji ? `border-${activeTheme.border.split('-')[1]}-500 bg-slate-700` : 'border-slate-700 bg-slate-900'} ${locked ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-500'}`}>
                                                 {locked ? <Icon path={ICONS.lock} className="w-5 h-5 text-slate-500"/> : emoji}
                                             </button>
                                         );
                                     })}
                                 </div>
                             </div>
-
                             {/* Thèmes */}
                             <div>
                                 <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Icon path={ICONS.gift} className="w-5 h-5 text-purple-400"/> Thèmes</h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     {Object.entries(THEMES).map(([key, t]) => {
-                                        // CORRECTIF: Remplacement de l'optional chaining par une vérification standard
                                         const levelObj = LEVELS.find(l => l.reward.type === 'theme' && l.reward.id === key);
                                         const requiredLvl = levelObj ? levelObj.lvl : 1;
-                                        
                                         const locked = currentLevel.lvl < requiredLvl;
-
                                         return (
-                                            <button 
-                                                key={key}
-                                                disabled={locked}
-                                                onClick={() => setUser({...user, theme: key})}
-                                                className={`p-4 rounded-xl border-2 flex items-center justify-between transition
-                                                    ${user.theme === key ? `border-${t.border.split('-')[1]}-500 bg-slate-800` : 'border-slate-700 bg-slate-900'}
-                                                    ${locked ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-800'}
-                                                `}
-                                            >
+                                            <button key={key} disabled={locked} onClick={() => setUserProfile({...userProfile, theme: key})} className={`p-4 rounded-xl border-2 flex items-center justify-between transition ${userProfile.theme === key ? `border-${t.border.split('-')[1]}-500 bg-slate-800` : 'border-slate-700 bg-slate-900'} ${locked ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-800'}`}>
                                                 <div className="flex items-center gap-3">
                                                     <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${t.bg}`}></div>
-                                                    <div className="text-left">
-                                                        <div className="font-bold text-white capitalize">{key}</div>
-                                                        <div className="text-xs text-slate-400">{locked ? `Niveau ${requiredLvl}` : 'Débloqué'}</div>
-                                                    </div>
+                                                    <div className="text-left"><div className="font-bold text-white capitalize">{key}</div><div className="text-xs text-slate-400">{locked ? `Niveau ${requiredLvl}` : 'Débloqué'}</div></div>
                                                 </div>
-                                                {locked && <Icon path={ICONS.lock} className="w-5 h-5 text-slate-500"/>}
-                                                {!locked && user.theme === key && <div className="w-3 h-3 rounded-full bg-green-500"></div>}
+                                                {locked ? <Icon path={ICONS.lock} className="w-5 h-5 text-slate-500"/> : userProfile.theme === key && <div className="w-3 h-3 rounded-full bg-green-500"></div>}
                                             </button>
                                         );
                                     })}
                                 </div>
                             </div>
-
-                            {/* Trophées */}
-                            <div>
-                                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Icon path={ICONS.chart} className="w-5 h-5 text-yellow-400"/> Trophées</h3>
-                                <div className="flex gap-4 p-4 bg-slate-900 rounded-xl border border-slate-700">
-                                    {currentLevel.lvl >= 4 ? <span className="text-3xl" title="Bronze">🥉</span> : <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center"><Icon path={ICONS.lock} className="w-4 h-4 text-slate-600"/></div>}
-                                    {currentLevel.lvl >= 10 ? <span className="text-3xl" title="Or">🏆</span> : <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center"><Icon path={ICONS.lock} className="w-4 h-4 text-slate-600"/></div>}
-                                    <span className="text-xs text-slate-500 self-center ml-auto">Jouez pour débloquer plus !</span>
-                                </div>
-                            </div>
                         </div>
-                    </div>
-                </div>
-            );
-
-            // Rendu conditionnel des autres vues (Session, Builder) reste similaire mais utilise activeTheme
-            // ... (Code abrégé pour Builder et Session, ils sont structurellement identiques à la v3 précédente 
-            // mais utilisent maintenant `activeTheme.bg` pour les boutons principaux)
-
-            const renderSession = () => {
-                if (!session) return null;
-                const card = session.queue[session.idx];
-                return (
-                    <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center p-4">
-                        <div className="w-full max-w-3xl perspective-1000 h-[500px] relative group animate-slide-up" onClick={() => setSession({...session, flipped: true})}>
-                            <div className={`relative w-full h-full text-center transition-transform duration-700 transform-style-3d ${session.flipped ? 'rotate-y-180' : ''}`}>
-                                <div className={`absolute w-full h-full backface-hidden rounded-3xl p-10 flex flex-col items-center justify-center bg-slate-800 border border-slate-600 shadow-2xl cursor-pointer hover:border-${activeTheme.border.split('-')[1]}-500/50 transition`}>
-                                    <div className={`${activeTheme.text} font-bold tracking-widest uppercase text-sm mb-8`}>Question</div>
-                                    <div className="text-4xl font-bold text-white">{card.q}</div>
-                                    <div className="mt-12 text-slate-500 text-sm animate-bounce">Appuyez pour retourner</div>
-                                </div>
-                                <div className="absolute w-full h-full backface-hidden rotate-y-180 rounded-3xl p-10 flex flex-col items-center justify-center bg-slate-900 border border-slate-700 shadow-2xl">
-                                    <div className="text-emerald-400 font-bold tracking-widest uppercase text-sm mb-8">Réponse</div>
-                                    <div className="text-3xl text-slate-200">{card.a}</div>
-                                    <div className="absolute bottom-10 left-0 w-full px-10 grid grid-cols-4 gap-4">
-                                        {[1, 2, 3, 4].map(r => (
-                                            <button key={r} onClick={(e) => { e.stopPropagation(); rateCard(r); }} className="py-3 rounded-lg bg-slate-800 border border-slate-600 hover:bg-slate-700 text-white font-bold transition">
-                                                {['Revoir', 'Dur', 'Bon', 'Facile'][r-1]}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
-            };
-
-            const renderBuilder = () => (
-                <div className="fixed inset-0 bg-slate-900/95 z-50 flex items-center justify-center p-4">
-                    <div className="w-full max-w-4xl bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                        <div className="p-6 border-b border-slate-700 flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Nouveau Cours</h2><button onClick={() => setView('home')} className="text-slate-400 hover:text-white"><Icon path={ICONS.x} className="w-6 h-6"/></button></div>
-                        <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
-                            <div className="grid grid-cols-2 gap-6">
-                                <input type="text" className="bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500" placeholder="Titre du cours" value={builder.title} onChange={e => setBuilder({...builder, title: e.target.value})} />
-                                <div className="flex gap-2 items-center">{SUBJECTS.map(s => <button key={s.id} onClick={() => setBuilder({...builder, subject: s.id})} className={`w-8 h-8 rounded-full border-2 ${builder.subject === s.id ? 'border-white scale-110' : 'border-transparent opacity-50'}`} style={{backgroundColor: s.color}} />)}</div>
-                            </div>
-                            <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-700 space-y-4">
-                                <input type="text" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none" placeholder="Question" value={tempCard.q} onChange={e => setTempCard({...tempCard, q: e.target.value})} />
-                                <input type="text" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none" placeholder="Réponse" value={tempCard.a} onChange={e => setTempCard({...tempCard, a: e.target.value})} />
-                                <button onClick={() => { if(tempCard.q && tempCard.a) { setBuilder({...builder, cards: [...builder.cards, {id: Date.now(), ...tempCard}]}); setTempCard({q:'', a:''}); }}} className="w-full py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold">+ Ajouter</button>
-                            </div>
-                            <div className="space-y-2">{builder.cards.map(c => <div key={c.id} className="p-3 bg-slate-800 rounded border border-slate-700 flex justify-between"><span className="text-white">{c.q}</span><span className="text-slate-400">{c.a}</span></div>)}</div>
-                        </div>
-                        <div className="p-6 border-t border-slate-700 flex justify-end"><button onClick={saveDeck} className={`px-8 py-3 rounded-xl font-bold text-white bg-gradient-to-r ${activeTheme.bg}`}>Sauvegarder</button></div>
                     </div>
                 </div>
             );
 
             return (
-                <div className="min-h-screen pb-10">
+                <div className="min-h-screen">
                     {view === 'home' && renderHome()}
-                    {view === 'profile' && renderProfile()}
-                    {view === 'session' && renderSession()}
                     {view === 'builder' && renderBuilder()}
+                    {view === 'profile' && renderProfile()}
                 </div>
             );
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<NeuroFlowUltimate />);
+        root.render(<NeuroFlowApp />);
     </script>
 </body>
 </html>
