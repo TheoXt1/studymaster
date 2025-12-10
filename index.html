@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroFlow 12.0 - Connexion Cloud</title>
+    <title>NeuroFlow 13.2 - Clean Edition</title>
     
     <!-- OUTILS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -71,39 +71,13 @@
 <body>
     <div id="root"></div>
 
-    <!-- FIREBASE MODULES -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app';
-
-        // Exposé globalement pour React
-        window.db = db;
-        window.auth = auth;
-        window.signInAnonymously = signInAnonymously;
-        window.signInWithCustomToken = signInWithCustomToken;
-        window.doc = doc;
-        window.getDoc = getDoc;
-        window.setDoc = setDoc;
-        window.onSnapshot = onSnapshot;
-        window.collection = collection;
-        window.appId = appId;
-        window.initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-    </script>
-
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
         const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } = Recharts;
 
         // --- CONSTANTES ---
         const MAX_DAILY_REVIEWS = 1;
-        const COLLECTION_NAME = 'neuroflow_users_v12'; 
+        const DB_PREFIX = 'neuroflow_user_'; // Préfixe pour le stockage local
 
         const LEVELS = [
             { lvl: 1, xp: 0, title: "Novice", reward: { type: 'theme', id: 'blue', name: 'Thème Océan' } },
@@ -147,66 +121,53 @@
             logOut: <g><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></g>,
             play: <polygon points="5 3 19 12 5 21 5 3"/>,
             flame: <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.1.2-2.2.6-3.3a1 1 0 0 1 1.9.8z"/>,
-            cloud: <path d="M17.5 19c0-1.7-1.3-3-3-3h-11a4 4 0 0 1-3.8-5.1 4 4 0 0 1 4.3-3.9c1.9 0 3.6.8 4.9 2.1a5 5 0 0 1 8.6 1.9 3 3 0 0 1 0 6z"/>
+            hdd: <g><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></g>,
+            download: <g><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></g>,
+            upload: <g><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></g>
         };
 
-        // --- AUTH COMPONENT (CLOUD) ---
-        const AuthView = ({ onLogin, isConnecting }) => {
+        // --- AUTH COMPONENT (LOCAL) ---
+        const AuthView = ({ onLogin }) => {
             const [isRegister, setIsRegister] = useState(false);
             const [formData, setFormData] = useState({ username: '', password: '' });
             const [error, setError] = useState('');
-            const [loading, setLoading] = useState(false);
 
-            const handleSubmit = async () => {
+            const handleSubmit = () => {
                 setError('');
                 if(!formData.username || !formData.password) return setError("Veuillez tout remplir.");
                 
-                setLoading(true);
-                const usernameKey = formData.username.toLowerCase().replace(/\s+/g, '_');
-                const userDocRef = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', COLLECTION_NAME, usernameKey);
+                const userKey = DB_PREFIX + formData.username.toLowerCase();
+                const storedUserStr = localStorage.getItem(userKey);
 
-                try {
-                    const docSnap = await window.getDoc(userDocRef);
-
-                    if (isRegister) {
-                        if (docSnap.exists()) {
-                            setError("Ce pseudo est déjà pris !");
+                if (isRegister) {
+                    if (storedUserStr) {
+                        setError("Ce pseudo existe déjà sur cet ordinateur.");
+                    } else {
+                        // Création
+                        const newUser = {
+                            password: formData.password,
+                            data: {
+                                profile: { name: formData.username, xp: 0, avatar: "👤", theme: "blue" },
+                                courses: []
+                            }
+                        };
+                        localStorage.setItem(userKey, JSON.stringify(newUser));
+                        onLogin(userKey, newUser.data);
+                    }
+                } else {
+                    // Connexion
+                    if (storedUserStr) {
+                        const storedUser = JSON.parse(storedUserStr);
+                        if (storedUser.password === formData.password) {
+                            onLogin(userKey, storedUser.data);
                         } else {
-                            const newUser = {
-                                password: formData.password,
-                                data: {
-                                    profile: { name: formData.username, xp: 0, avatar: "👤", theme: "blue" },
-                                    courses: []
-                                }
-                            };
-                            await window.setDoc(userDocRef, newUser);
-                            onLogin(usernameKey, newUser.data);
+                            setError("Mot de passe incorrect.");
                         }
                     } else {
-                        if (docSnap.exists()) {
-                            const userData = docSnap.data();
-                            if (userData.password === formData.password) {
-                                onLogin(usernameKey, userData.data);
-                            } else {
-                                setError("Mot de passe incorrect.");
-                            }
-                        } else {
-                            setError("Compte introuvable.");
-                        }
+                        setError("Utilisateur introuvable sur cet ordinateur.");
                     }
-                } catch (err) {
-                    console.error("Erreur Auth:", err);
-                    setError("Erreur de connexion. Réessayez.");
-                } finally {
-                    setLoading(false);
                 }
             };
-
-            if (isConnecting) return (
-                <div className="min-h-screen flex items-center justify-center bg-[#020617] text-cyan-400 font-mono animate-pulse">
-                    Initialisation du Cloud...
-                </div>
-            );
 
             return (
                 <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-[#020617]">
@@ -222,7 +183,7 @@
                             </div>
                             <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 mb-2">NeuroFlow</h1>
                             <p className="text-slate-400 font-medium flex items-center justify-center gap-2">
-                                <Icon path={ICONS.cloud} className="w-4 h-4"/> Cloud Sync
+                                <Icon path={ICONS.hdd} className="w-4 h-4"/> Mode Hors Ligne
                             </p>
                         </div>
 
@@ -231,17 +192,17 @@
                                 <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2 ml-1">Pseudo</label>
                                 <input 
                                     type="text" 
-                                    className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-5 py-4 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
+                                    className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-5 py-4 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all duration-300 group-hover:border-slate-600"
                                     value={formData.username}
                                     onChange={e => setFormData({...formData, username: e.target.value})}
-                                    placeholder="Identifiant"
+                                    placeholder="Identifiant local"
                                 />
                             </div>
                             <div className="group">
                                 <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2 ml-1">Mot de passe</label>
                                 <input 
                                     type="password" 
-                                    className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-5 py-4 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
+                                    className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-5 py-4 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all duration-300 group-hover:border-slate-600"
                                     value={formData.password}
                                     onChange={e => setFormData({...formData, password: e.target.value})}
                                     placeholder="••••••••"
@@ -252,10 +213,9 @@
 
                             <button 
                                 onClick={handleSubmit} 
-                                disabled={loading}
-                                className={`w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-cyan-500/20 transition-all duration-300 transform hover:scale-[1.02] active:scale-95 mt-4 flex items-center justify-center gap-2 ${loading ? 'opacity-70 cursor-wait' : ''}`}
+                                className={`w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-cyan-500/20 transition-all duration-300 transform hover:scale-[1.02] active:scale-95 mt-4 flex items-center justify-center gap-2`}
                             >
-                                {loading ? "Connexion..." : (isRegister ? "Créer un compte" : "Se connecter")}
+                                {isRegister ? "Créer un compte local" : "Se connecter"}
                             </button>
 
                             <div className="text-center pt-6">
@@ -271,66 +231,35 @@
 
         // --- MAIN APP ---
         function NeuroFlowApp() {
-            const [isFirebaseReady, setIsFirebaseReady] = useState(false);
             const [sessionUserKey, setSessionUserKey] = useState(null);
+            
+            // App Data
             const [userProfile, setUserProfile] = useState(null);
             const [courses, setCourses] = useState([]);
             
+            // UI State
             const [view, setView] = useState('home');
             const [selectedCourse, setSelectedCourse] = useState(null);
             const [newCourse, setNewCourse] = useState({ title: '', subject: 'maths' });
+            
+            // Pour l'import de fichier
+            const fileInputRef = useRef(null);
 
+            // 1. Sauvegarde automatique dans localStorage à chaque changement
             useEffect(() => {
-                const initAuth = async () => {
-                    try {
-                        if (typeof window.auth !== 'undefined') {
-                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                                await window.signInWithCustomToken(window.auth, __initial_auth_token);
-                            } else {
-                                await window.signInAnonymously(window.auth);
-                            }
-                            setIsFirebaseReady(true);
-                        } else {
-                            setTimeout(initAuth, 500);
-                        }
-                    } catch (e) {
-                        console.error("Auth Error", e);
+                if (sessionUserKey && userProfile) {
+                    const storedData = localStorage.getItem(sessionUserKey);
+                    if (storedData) {
+                        const parsed = JSON.parse(storedData);
+                        // On met à jour les données dans l'objet complet (en gardant le mot de passe)
+                        parsed.data = {
+                            profile: userProfile,
+                            courses: courses
+                        };
+                        localStorage.setItem(sessionUserKey, JSON.stringify(parsed));
                     }
-                };
-                initAuth();
-            }, []);
-
-            useEffect(() => {
-                if (!sessionUserKey) return;
-                const userDocRef = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', COLLECTION_NAME, sessionUserKey);
-                const unsubscribe = window.onSnapshot(userDocRef, (doc) => {
-                    if (doc.exists()) {
-                        const data = doc.data().data;
-                        setUserProfile(data.profile);
-                        setCourses(data.courses);
-                    }
-                });
-                return () => unsubscribe();
-            }, [sessionUserKey]);
-
-            const saveToCloud = async (newProfile, newCourses) => {
-                if (!sessionUserKey) return;
-                if (newProfile) setUserProfile(newProfile);
-                if (newCourses) setCourses(newCourses);
-
-                try {
-                    const userDocRef = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', COLLECTION_NAME, sessionUserKey);
-                    const payload = {
-                        data: {
-                            profile: newProfile || userProfile,
-                            courses: newCourses || courses
-                        }
-                    };
-                    await window.setDoc(userDocRef, payload, { merge: true });
-                } catch (e) {
-                    console.error("Save Error", e);
                 }
-            };
+            }, [userProfile, courses, sessionUserKey]);
 
             const handleLogin = (userKey, initialData) => {
                 setSessionUserKey(userKey);
@@ -347,9 +276,49 @@
                 setView('login');
             };
 
-            if (!isFirebaseReady) return <div className="min-h-screen bg-[#020617] flex items-center justify-center text-cyan-500 animate-pulse">Initialisation du Cloud...</div>;
-            if (!sessionUserKey || !userProfile) return <AuthView onLogin={handleLogin} isConnecting={!isFirebaseReady} />;
+            // Fonction de sauvegarde locale (juste pour update le state, le useEffect fait le reste)
+            const updateLocalState = (newProfile, newCourses) => {
+                if (newProfile) setUserProfile(newProfile);
+                if (newCourses) setCourses(newCourses);
+            };
 
+            const handleExportData = () => {
+                const dataStr = JSON.stringify({ profile: userProfile, courses: courses }, null, 2);
+                const blob = new Blob([dataStr], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.download = `neuroflow_${userProfile.name}_${new Date().toISOString().slice(0,10)}.json`;
+                link.href = url;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                confetti({ particleCount: 50, spread: 50, origin: { y: 0.6 } });
+            };
+
+            const handleImportData = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const json = JSON.parse(e.target.result);
+                        if (json.profile && json.courses) {
+                            updateLocalState(json.profile, json.courses);
+                            alert("Importation réussie !");
+                            confetti({ particleCount: 150, spread: 100, origin: { y: 0.5 } });
+                        } else {
+                            alert("Format de fichier invalide.");
+                        }
+                    } catch (err) {
+                        alert("Erreur de lecture du fichier.");
+                    }
+                };
+                reader.readAsText(file);
+            };
+
+            if (!sessionUserKey || !userProfile) return <AuthView onLogin={handleLogin} />;
+
+            // --- THEME & LOGIC ---
             const activeTheme = THEMES[userProfile.theme] || THEMES.blue;
             const currentLevel = LEVELS.slice().reverse().find(l => userProfile.xp >= l.xp) || LEVELS[0];
             const nextLevel = LEVELS.find(l => l.lvl === currentLevel.lvl + 1);
@@ -365,7 +334,7 @@
                     history: []
                 };
                 const updatedCourses = [...courses, course];
-                saveToCloud(null, updatedCourses);
+                updateLocalState(null, updatedCourses);
                 setNewCourse({ title: '', subject: 'maths' });
                 setView('home');
                 confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 }, colors: ['#22d3ee', '#e879f9'] });
@@ -381,7 +350,8 @@
 
                 const now = new Date().toISOString();
                 const updatedCourses = courses.map(c => c.id === course.id ? { ...c, history: [...c.history, now] } : c);
-                
+                setCourses(updatedCourses);
+
                 const xpGain = 100; 
                 const newXp = userProfile.xp + xpGain;
                 const updatedProfile = { ...userProfile, xp: newXp };
@@ -394,7 +364,7 @@
                     confetti({ particleCount: 30, spread: 40, origin: { y: 0.7 }, colors: ['#ffffff', activeTheme.bg.split('-')[1]] });
                 }
 
-                saveToCloud(updatedProfile, updatedCourses);
+                updateLocalState(updatedProfile, updatedCourses);
             };
 
             const getRetentionCurves = (course) => {
@@ -408,6 +378,7 @@
                 for (let i = 0; i <= 30; i++) {
                     const projectedDate = new Date();
                     projectedDate.setDate(now.getDate() + i);
+                    
                     const daysSinceLastEvent = (projectedDate - lastEventDate) / (1000 * 60 * 60 * 24);
                     let realRetention = 100 * Math.exp(-daysSinceLastEvent / stability);
                     if (daysSinceLastEvent < 0) realRetention = 100;
@@ -453,9 +424,11 @@
 
             const renderHome = () => (
                 <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-10 animate-fade-in pb-24">
+                    {/* TOP BAR / STATS */}
                     <div className="glass rounded-3xl p-6 md:p-8 relative overflow-hidden flex flex-col md:flex-row items-center gap-8 border-t border-white/10">
                         <div className={`absolute top-0 right-0 w-96 h-96 bg-gradient-to-br ${activeTheme.bg} opacity-20 rounded-full blur-[100px] pointer-events-none translate-x-1/3 -translate-y-1/3`}></div>
                         
+                        {/* Avatar */}
                         <div className="relative group">
                             <div className={`absolute inset-0 bg-gradient-to-r ${activeTheme.bg} rounded-full blur opacity-50 group-hover:opacity-100 transition-opacity duration-500`}></div>
                             <div className="w-24 h-24 rounded-full bg-slate-900 flex items-center justify-center text-5xl relative z-10 border-4 border-slate-800 shadow-xl">
@@ -466,6 +439,7 @@
                             </div>
                         </div>
                         
+                        {/* Info & XP Bar */}
                         <div className="flex-1 w-full text-center md:text-left z-10">
                             <div className="flex items-center justify-center md:justify-between mb-2">
                                 <div>
@@ -478,6 +452,7 @@
                                 </div>
                             </div>
                             
+                            {/* XP Progress */}
                             <div className="relative h-6 bg-slate-900/80 rounded-full p-1 border border-slate-700 shadow-inner">
                                 <div className={`h-full rounded-full bg-gradient-to-r ${activeTheme.bg} transition-all duration-1000 relative overflow-hidden`} style={{ width: `${progress}%` }}>
                                     <div className="absolute inset-0 bg-white/20 animate-[pulse_2s_infinite]"></div>
@@ -489,6 +464,7 @@
                             </div>
                         </div>
 
+                        {/* Actions */}
                         <div className="flex gap-4 z-10">
                             <button onClick={() => setView('profile')} className="p-4 bg-slate-800 hover:bg-slate-700 rounded-2xl border border-slate-700 transition hover:scale-105 active:scale-95 group" title="Profil">
                                 <Icon path={ICONS.user} className="w-6 h-6 text-slate-400 group-hover:text-white transition-colors" />
@@ -502,6 +478,7 @@
                         </div>
                     </div>
 
+                    {/* COURSES GRID */}
                     <div>
                         <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
                             <Icon path={ICONS.flame} className="w-6 h-6 text-orange-500" /> Vos Cours Actifs
@@ -625,12 +602,30 @@
                         </div>
                         <div className="p-8 overflow-y-auto custom-scrollbar space-y-10 bg-slate-900/30">
                             <section>
+                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Sauvegarde</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <button onClick={handleExportData} className="p-5 rounded-2xl border-2 border-slate-700 bg-slate-800/50 hover:bg-slate-800 hover:border-cyan-500 transition-all group flex items-center justify-between">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-full bg-cyan-900/30 flex items-center justify-center text-cyan-400"><Icon path={ICONS.download} className="w-6 h-6"/></div>
+                                            <div className="text-left"><div className="font-bold text-white">Exporter</div><div className="text-xs text-slate-400">Télécharger backup (.json)</div></div>
+                                        </div>
+                                    </button>
+                                    <label className="p-5 rounded-2xl border-2 border-slate-700 bg-slate-800/50 hover:bg-slate-800 hover:border-purple-500 transition-all group flex items-center justify-between cursor-pointer">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-full bg-purple-900/30 flex items-center justify-center text-purple-400"><Icon path={ICONS.upload} className="w-6 h-6"/></div>
+                                            <div className="text-left"><div className="font-bold text-white">Importer</div><div className="text-xs text-slate-400">Charger backup</div></div>
+                                        </div>
+                                        <input type="file" ref={fileInputRef} onChange={handleImportData} accept=".json" className="hidden" />
+                                    </label>
+                                </div>
+                            </section>
+                            <section>
                                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Identité Visuelle</h3>
                                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-4">
                                     {['👨‍🎓', '👩‍🎓', '🧠', '🦁', '🚀', '👑'].map((emoji, i) => {
                                         const locked = i > 1 && currentLevel.lvl < (i + 1); 
                                         return (
-                                            <button key={i} disabled={locked} onClick={() => saveToCloud({...userProfile, avatar: emoji}, null)} className={`aspect-square rounded-2xl flex items-center justify-center text-4xl border-2 transition-all relative group ${userProfile.avatar === emoji ? `border-cyan-500 bg-cyan-900/20 shadow-[0_0_20px_rgba(34,211,238,0.3)]` : 'border-slate-700 bg-slate-800'} ${locked ? 'opacity-40 grayscale cursor-not-allowed' : 'hover:-translate-y-1 hover:border-slate-500'}`}>
+                                            <button key={i} disabled={locked} onClick={() => updateLocalState({...userProfile, avatar: emoji}, null)} className={`aspect-square rounded-2xl flex items-center justify-center text-4xl border-2 transition-all relative group ${userProfile.avatar === emoji ? `border-cyan-500 bg-cyan-900/20 shadow-[0_0_20px_rgba(34,211,238,0.3)]` : 'border-slate-700 bg-slate-800'} ${locked ? 'opacity-40 grayscale cursor-not-allowed' : 'hover:-translate-y-1 hover:border-slate-500'}`}>
                                                 {locked && <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl"><Icon path={ICONS.lock} className="w-6 h-6 text-white"/></div>}
                                                 {emoji}
                                             </button>
@@ -646,7 +641,7 @@
                                         const requiredLvl = levelObj ? levelObj.lvl : 1;
                                         const locked = currentLevel.lvl < requiredLvl;
                                         return (
-                                            <button key={key} disabled={locked} onClick={() => saveToCloud({...userProfile, theme: key}, null)} className={`p-5 rounded-2xl border-2 flex items-center justify-between transition-all group ${userProfile.theme === key ? `border-${t.border.split('-')[1]}-500 bg-slate-800 shadow-lg` : 'border-slate-700 bg-slate-900'} ${locked ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-500'}`}>
+                                            <button key={key} disabled={locked} onClick={() => updateLocalState({...userProfile, theme: key}, null)} className={`p-5 rounded-2xl border-2 flex items-center justify-between transition-all group ${userProfile.theme === key ? `border-${t.border.split('-')[1]}-500 bg-slate-800 shadow-lg` : 'border-slate-700 bg-slate-900'} ${locked ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-500'}`}>
                                                 <div className="flex items-center gap-4">
                                                     <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${t.bg} shadow-inner`}></div>
                                                     <div className="text-left"><div className="font-bold text-white text-lg capitalize">{key}</div><div className="text-xs font-mono text-slate-400">{locked ? `REQ: LVL ${requiredLvl}` : 'UNLOCKED'}</div></div>
