@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroFlow 10.0 - Dual Profiles</title>
+    <title>NeuroFlow 12.0 - Connexion Cloud</title>
     
     <!-- OUTILS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -56,6 +56,16 @@
 
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         .animate-float { animation: float 6s ease-in-out infinite; }
+
+        /* Input Autofill Fix */
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus, 
+        input:-webkit-autofill:active{
+            -webkit-box-shadow: 0 0 0 30px #0f172a inset !important;
+            -webkit-text-fill-color: white !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
     </style>
 </head>
 <body>
@@ -64,18 +74,16 @@
     <!-- FIREBASE MODULES -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        // AJOUT: signInWithCustomToken pour corriger l'erreur de permission
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Configuration automatique
         const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app';
 
-        // Exposé globalement
+        // Exposé globalement pour React
         window.db = db;
         window.auth = auth;
         window.signInAnonymously = signInAnonymously;
@@ -84,22 +92,18 @@
         window.getDoc = getDoc;
         window.setDoc = setDoc;
         window.onSnapshot = onSnapshot;
+        window.collection = collection;
         window.appId = appId;
+        window.initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
     </script>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
         const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } = Recharts;
 
         // --- CONSTANTES ---
         const MAX_DAILY_REVIEWS = 1;
-        const COLLECTION_NAME = 'neuroflow_dual_profiles'; 
-
-        // Les deux comptes par défaut codés en dur
-        const DEFAULT_ACCOUNTS = [
-            { id: 'profile_marie', name: 'Marie', color: 'from-blue-600 to-cyan-500', icon: '👩‍🎓' },
-            { id: 'profile_theotime', name: 'Théotime', color: 'from-purple-600 to-pink-500', icon: '👨‍🎓' }
-        ];
+        const COLLECTION_NAME = 'neuroflow_users_v12'; 
 
         const LEVELS = [
             { lvl: 1, xp: 0, title: "Novice", reward: { type: 'theme', id: 'blue', name: 'Thème Océan' } },
@@ -107,6 +111,7 @@
             { lvl: 3, xp: 500, title: "Initié", reward: { type: 'theme', id: 'purple', name: 'Thème Néon' } },
             { lvl: 4, xp: 1000, title: "Expert", reward: { type: 'trophy', id: '🥉', name: 'Médaille Bronze' } },
             { lvl: 5, xp: 2000, title: "Maître", reward: { type: 'avatar', id: '🚀', name: 'Avatar Astronaute' } },
+            { lvl: 6, xp: 3500, title: "Grand Maître", reward: { type: 'theme', id: 'gold', name: 'Thème Royal' } },
             { lvl: 10, xp: 10000, title: "Légende", reward: { type: 'trophy', id: '🏆', name: 'Coupe Ultime' } }
         ];
 
@@ -145,39 +150,63 @@
             cloud: <path d="M17.5 19c0-1.7-1.3-3-3-3h-11a4 4 0 0 1-3.8-5.1 4 4 0 0 1 4.3-3.9c1.9 0 3.6.8 4.9 2.1a5 5 0 0 1 8.6 1.9 3 3 0 0 1 0 6z"/>
         };
 
-        // --- AUTH VIEW SIMPLIFIÉE (2 BOUTONS) ---
+        // --- AUTH COMPONENT (CLOUD) ---
         const AuthView = ({ onLogin, isConnecting }) => {
-            const [loadingId, setLoadingId] = useState(null);
+            const [isRegister, setIsRegister] = useState(false);
+            const [formData, setFormData] = useState({ username: '', password: '' });
+            const [error, setError] = useState('');
+            const [loading, setLoading] = useState(false);
 
-            const handleProfileSelect = async (account) => {
-                setLoadingId(account.id);
+            const handleSubmit = async () => {
+                setError('');
+                if(!formData.username || !formData.password) return setError("Veuillez tout remplir.");
                 
-                // Référence au document FIXE dans le cloud
-                const userDocRef = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', COLLECTION_NAME, account.id);
+                setLoading(true);
+                const usernameKey = formData.username.toLowerCase().replace(/\s+/g, '_');
+                const userDocRef = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', COLLECTION_NAME, usernameKey);
 
                 try {
                     const docSnap = await window.getDoc(userDocRef);
 
-                    if (docSnap.exists()) {
-                        // Le profil existe déjà, on le charge
-                        onLogin(account.id, docSnap.data().data);
+                    if (isRegister) {
+                        if (docSnap.exists()) {
+                            setError("Ce pseudo est déjà pris !");
+                        } else {
+                            const newUser = {
+                                password: formData.password,
+                                data: {
+                                    profile: { name: formData.username, xp: 0, avatar: "👤", theme: "blue" },
+                                    courses: []
+                                }
+                            };
+                            await window.setDoc(userDocRef, newUser);
+                            onLogin(usernameKey, newUser.data);
+                        }
                     } else {
-                        // Le profil n'existe pas, on le crée
-                        const newUser = {
-                            data: {
-                                profile: { name: account.name, xp: 0, avatar: account.icon, theme: "blue" },
-                                courses: []
+                        if (docSnap.exists()) {
+                            const userData = docSnap.data();
+                            if (userData.password === formData.password) {
+                                onLogin(usernameKey, userData.data);
+                            } else {
+                                setError("Mot de passe incorrect.");
                             }
-                        };
-                        await window.setDoc(userDocRef, newUser);
-                        onLogin(account.id, newUser.data);
+                        } else {
+                            setError("Compte introuvable.");
+                        }
                     }
                 } catch (err) {
                     console.error("Erreur Auth:", err);
-                    alert("Erreur de connexion au Cloud. Réessayez.");
-                    setLoadingId(null);
+                    setError("Erreur de connexion. Réessayez.");
+                } finally {
+                    setLoading(false);
                 }
             };
+
+            if (isConnecting) return (
+                <div className="min-h-screen flex items-center justify-center bg-[#020617] text-cyan-400 font-mono animate-pulse">
+                    Initialisation du Cloud...
+                </div>
+            );
 
             return (
                 <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-[#020617]">
@@ -186,41 +215,54 @@
                         <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-purple-600/10 rounded-full blur-[120px] animate-float" style={{animationDelay: '3s'}}></div>
                     </div>
 
-                    <div className="glass w-full max-w-lg p-10 rounded-3xl animate-fade-in relative z-10 border border-slate-700/50">
-                        <div className="text-center mb-12">
-                            <div className="w-20 h-20 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-2xl mx-auto flex items-center justify-center mb-6 shadow-2xl shadow-cyan-500/20">
+                    <div className="glass w-full max-w-md p-10 rounded-3xl animate-fade-in relative z-10 border border-slate-700/50">
+                        <div className="text-center mb-10">
+                            <div className="w-20 h-20 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-2xl mx-auto flex items-center justify-center mb-6 shadow-2xl shadow-cyan-500/20 rotate-3 hover:rotate-6 transition-transform duration-500">
                                 <span className="text-4xl text-white">🧠</span>
                             </div>
-                            <h1 className="text-4xl font-black text-white mb-2">NeuroFlow</h1>
-                            <p className="text-slate-400 font-medium">Choisissez votre session</p>
+                            <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 mb-2">NeuroFlow</h1>
+                            <p className="text-slate-400 font-medium flex items-center justify-center gap-2">
+                                <Icon path={ICONS.cloud} className="w-4 h-4"/> Cloud Sync
+                            </p>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {DEFAULT_ACCOUNTS.map(acc => (
-                                <button 
-                                    key={acc.id}
-                                    onClick={() => handleProfileSelect(acc)}
-                                    disabled={loadingId !== null}
-                                    className={`relative p-6 rounded-2xl border-2 border-slate-700 bg-slate-800/50 hover:bg-slate-800 transition-all duration-300 group hover:border-slate-500 hover:-translate-y-1 ${loadingId === acc.id ? 'opacity-50 cursor-wait' : ''}`}
-                                >
-                                    <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${acc.color} flex items-center justify-center text-3xl mb-4 mx-auto shadow-lg group-hover:scale-110 transition-transform`}>
-                                        {acc.icon}
-                                    </div>
-                                    <div className="font-bold text-white text-lg">{acc.name}</div>
-                                    <div className="text-xs text-slate-500 mt-1">Données partagées</div>
-                                    
-                                    {loadingId === acc.id && (
-                                        <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80 rounded-2xl">
-                                            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                        </div>
-                                    )}
+                        <div className="space-y-5">
+                            <div className="group">
+                                <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2 ml-1">Pseudo</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-5 py-4 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
+                                    value={formData.username}
+                                    onChange={e => setFormData({...formData, username: e.target.value})}
+                                    placeholder="Identifiant"
+                                />
+                            </div>
+                            <div className="group">
+                                <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2 ml-1">Mot de passe</label>
+                                <input 
+                                    type="password" 
+                                    className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-5 py-4 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
+                                    value={formData.password}
+                                    onChange={e => setFormData({...formData, password: e.target.value})}
+                                    placeholder="••••••••"
+                                />
+                            </div>
+
+                            {error && <div className="text-rose-400 text-sm text-center bg-rose-500/10 py-3 rounded-xl border border-rose-500/20 animate-pulse">{error}</div>}
+
+                            <button 
+                                onClick={handleSubmit} 
+                                disabled={loading}
+                                className={`w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-cyan-500/20 transition-all duration-300 transform hover:scale-[1.02] active:scale-95 mt-4 flex items-center justify-center gap-2 ${loading ? 'opacity-70 cursor-wait' : ''}`}
+                            >
+                                {loading ? "Connexion..." : (isRegister ? "Créer un compte" : "Se connecter")}
+                            </button>
+
+                            <div className="text-center pt-6">
+                                <button onClick={() => { setIsRegister(!isRegister); setError(''); }} className="text-slate-500 hover:text-cyan-400 text-sm font-medium transition-colors">
+                                    {isRegister ? "Déjà un compte ? Connexion" : "Nouveau ? Créer un compte"}
                                 </button>
-                            ))}
-                        </div>
-                        
-                        <div className="mt-8 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-                            <Icon path={ICONS.cloud} className="w-3 h-3"/>
-                            Les données de ces profils sont synchronisées mondialement.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -242,7 +284,6 @@
                 const initAuth = async () => {
                     try {
                         if (typeof window.auth !== 'undefined') {
-                            // CORRECTIF: Utilisation du custom token s'il est présent
                             if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                                 await window.signInWithCustomToken(window.auth, __initial_auth_token);
                             } else {
@@ -412,11 +453,9 @@
 
             const renderHome = () => (
                 <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-10 animate-fade-in pb-24">
-                    {/* TOP BAR / STATS */}
                     <div className="glass rounded-3xl p-6 md:p-8 relative overflow-hidden flex flex-col md:flex-row items-center gap-8 border-t border-white/10">
                         <div className={`absolute top-0 right-0 w-96 h-96 bg-gradient-to-br ${activeTheme.bg} opacity-20 rounded-full blur-[100px] pointer-events-none translate-x-1/3 -translate-y-1/3`}></div>
                         
-                        {/* Avatar */}
                         <div className="relative group">
                             <div className={`absolute inset-0 bg-gradient-to-r ${activeTheme.bg} rounded-full blur opacity-50 group-hover:opacity-100 transition-opacity duration-500`}></div>
                             <div className="w-24 h-24 rounded-full bg-slate-900 flex items-center justify-center text-5xl relative z-10 border-4 border-slate-800 shadow-xl">
@@ -427,7 +466,6 @@
                             </div>
                         </div>
                         
-                        {/* Info & XP Bar */}
                         <div className="flex-1 w-full text-center md:text-left z-10">
                             <div className="flex items-center justify-center md:justify-between mb-2">
                                 <div>
@@ -440,7 +478,6 @@
                                 </div>
                             </div>
                             
-                            {/* XP Progress */}
                             <div className="relative h-6 bg-slate-900/80 rounded-full p-1 border border-slate-700 shadow-inner">
                                 <div className={`h-full rounded-full bg-gradient-to-r ${activeTheme.bg} transition-all duration-1000 relative overflow-hidden`} style={{ width: `${progress}%` }}>
                                     <div className="absolute inset-0 bg-white/20 animate-[pulse_2s_infinite]"></div>
@@ -452,7 +489,6 @@
                             </div>
                         </div>
 
-                        {/* Actions */}
                         <div className="flex gap-4 z-10">
                             <button onClick={() => setView('profile')} className="p-4 bg-slate-800 hover:bg-slate-700 rounded-2xl border border-slate-700 transition hover:scale-105 active:scale-95 group" title="Profil">
                                 <Icon path={ICONS.user} className="w-6 h-6 text-slate-400 group-hover:text-white transition-colors" />
@@ -466,7 +502,6 @@
                         </div>
                     </div>
 
-                    {/* COURSES GRID */}
                     <div>
                         <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
                             <Icon path={ICONS.flame} className="w-6 h-6 text-orange-500" /> Vos Cours Actifs
