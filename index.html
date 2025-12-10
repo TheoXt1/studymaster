@@ -3,478 +3,482 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroFlow - Apprentissage Optimisé</title>
+    <title>NeuroFlow 3.0 - Répétition Espacée Ultime</title>
     
-    <!-- 1. CHARGEMENT DES OUTILS -->
+    <!-- OUTILS (React, Tailwind, Recharts, Lucide, Babel) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-    
-    <!-- Babel pour traduire le JSX dans le navigateur -->
     <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
-    
-    <!-- CORRECTIF 1 : Inclusion de PropTypes nécessaire pour Recharts en version UMD -->
     <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
-    
-    <!-- Recharts -->
     <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <style>
-        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+        /* Base & Scrollbar */
+        body { background-color: #0f172a; color: #f8fafc; font-family: 'Segoe UI', system-ui, sans-serif; overflow-x: hidden; transition: background-color 0.5s ease; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
         
-        body { background-color: #020617; color: #e2e8f0; }
+        /* Effets Glassmorphism */
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .glass-panel { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
         
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-in { animation: fadeIn 0.5s ease-out forwards; }
+        /* Animations */
+        .perspective-1000 { perspective: 1000px; }
+        .transform-style-3d { transform-style: preserve-3d; }
+        .backface-hidden { backface-visibility: hidden; }
+        .rotate-y-180 { transform: rotateY(180deg); }
+        
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-slide-up { animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
     </style>
 </head>
 <body>
-
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
+        const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } = Recharts;
+
+        // --- DONNÉES DE JEU (Gamification) ---
         
-        const { 
-            LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip: RechartsTooltip, 
-            ResponsiveContainer, AreaChart, Area, RadarChart, PolarGrid, 
-            PolarAngleAxis, PolarRadiusAxis, Radar 
-        } = Recharts;
+        const LEVELS = [
+            { lvl: 1, xp: 0, title: "Novice", reward: { type: 'theme', id: 'blue', name: 'Thème Océan' } },
+            { lvl: 2, xp: 200, title: "Apprenti", reward: { type: 'avatar', id: '🦁', name: 'Avatar Lion' } },
+            { lvl: 3, xp: 500, title: "Initié", reward: { type: 'theme', id: 'purple', name: 'Thème Néon' } },
+            { lvl: 4, xp: 1000, title: "Expert", reward: { type: 'trophy', id: '🥉', name: 'Médaille Bronze' } },
+            { lvl: 5, xp: 2000, title: "Maître", reward: { type: 'avatar', id: '🚀', name: 'Avatar Astronaute' } },
+            { lvl: 6, xp: 3500, title: "Grand Maître", reward: { type: 'theme', id: 'gold', name: 'Thème Royal' } },
+            { lvl: 10, xp: 10000, title: "Légende", reward: { type: 'trophy', id: '🏆', name: 'Coupe Ultime' } }
+        ];
 
-        // --- ICONES (CORRIGÉES : Utilisation de <g> au lieu de <>) ---
-        const Icon = ({ name, color = "currentColor", size = 24, className = "" }) => {
-            const icons = {
-                Brain: <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" />,
-                LayoutDashboard: <path d="M3 3h7v9H3z M14 3h7v5h-7z M14 12h7v9h-7z M3 16h7v5H3z" />,
-                Layers: <g><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" /><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></g>,
-                FolderOpen: <path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-3.25 7a2 2 0 0 1-1.8 1.18H7a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4h8a2 2 0 0 1 2 2v1" />,
-                User: <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2 M12 3a4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-4-4 4 4 0 0 1 4-4z" />,
-                Award: <g><circle cx="12" cy="8" r="7" /><path d="M8.21 13.89 7 23l5-3 5 3-1.21-9.12" /></g>,
-                Zap: <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />,
-                Plus: <path d="M5 12h14 M12 5v14" />,
-                PlusCircle: <g><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></g>,
-                Clock: <g><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></g>,
-                TrendingUp: <g><path d="m22 7-8.5 8.5-5-5L2 17" /><path d="M16 7h6v6" /></g>,
-                Activity: <path d="M22 12h-4l-3 9L9 3l-3 9H2" />,
-                CheckCircle: <g><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><path d="M22 4 12 14.01l-3-3" /></g>,
-                XCircle: <g><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" /></g>,
-                ChevronRight: <path d="m9 18 6-6-6-6" />,
-                Upload: <g><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m17 8-5-5-5 5" /><path d="M12 3v12" /></g>,
-                Trash2: <g><path d="M3 6h18 M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></g>,
-                Settings: <g><path d="M12.22 2h-.44a2 2 0 0 1-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></g>,
-                LogOut: <g><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></g>,
-                Sparkles: <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />,
-                FileText: <g><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><path d="M14 2v6h6" /><path d="M16 13H8" /><path d="M16 17H8" /><path d="M10 9H8" /></g>
-            };
-
-            return (
-                <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    width={size} 
-                    height={size} 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke={color} 
-                    strokeWidth="2" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    className={className}
-                >
-                    {icons[name] || <circle cx="12" cy="12" r="10" />}
-                </svg>
-            );
+        const THEMES = {
+            blue: { bg: 'from-cyan-500 to-blue-600', text: 'text-cyan-400', border: 'border-cyan-500', glow: 'shadow-cyan-500/50' },
+            purple: { bg: 'from-purple-500 to-pink-600', text: 'text-purple-400', border: 'border-purple-500', glow: 'shadow-purple-500/50' },
+            gold: { bg: 'from-yellow-400 to-amber-600', text: 'text-amber-400', border: 'border-amber-500', glow: 'shadow-amber-500/50' },
+            green: { bg: 'from-emerald-400 to-green-600', text: 'text-emerald-400', border: 'border-emerald-500', glow: 'shadow-emerald-500/50' }
         };
 
         const SUBJECTS = [
-            { id: 'maths', name: 'Mathématiques', color: '#8884d8', icon: 'Brain' },
-            { id: 'pc', name: 'Physique-Chimie', color: '#82ca9d', icon: 'Zap' },
-            { id: 's2i', name: 'S2I', color: '#ffc658', icon: 'Settings' },
-            { id: 'info', name: 'Informatique', color: '#ff7300', icon: 'LayoutDashboard' }
+            { id: 'maths', name: 'Maths', color: '#f43f5e', gradient: 'from-rose-500 to-red-600' },
+            { id: 'phys', name: 'Physique', color: '#3b82f6', gradient: 'from-blue-500 to-indigo-600' },
+            { id: 'info', name: 'Info', color: '#eab308', gradient: 'from-yellow-400 to-orange-500' },
+            { id: 's2i', name: 'S2I', color: '#10b981', gradient: 'from-emerald-400 to-teal-500' },
         ];
 
-        const INITIAL_TOPICS = [
-            { 
-                id: 1, 
-                subject: 'info', 
-                title: 'Exemple: Bienvenue sur NeuroFlow', 
-                level: 1, 
-                interval: 0,
-                nextReview: new Date().toISOString(), 
-                lastReviewed: null, 
-                content: 'Ceci est une carte exemple. Créez les vôtres via le bouton "Créer" dans le menu à gauche.', 
-                status: 'new',
-                history: []
+        const INITIAL_DECKS = [
+            {
+                id: 1,
+                title: "Dérivées Usuelles",
+                subject: "maths",
+                cards: [
+                    { id: 1, q: "Dérivée de x² ?", a: "2x", level: 1, interval: 0, nextReview: new Date().toISOString(), history: [] },
+                    { id: 2, q: "Dérivée de ln(x) ?", a: "1/x", level: 1, interval: 0, nextReview: new Date().toISOString(), history: [] }
+                ]
             }
         ];
 
-        const getNextIntervals = (currentInterval, currentLevel) => {
-            const safeInterval = Math.max(currentInterval, 1);
-            return {
-                again: 0,
-                hard: 1,
-                good: Math.ceil(safeInterval * 1.5 + currentLevel),
-                easy: Math.ceil(safeInterval * 2.5 + currentLevel * 2)
-            };
+        // --- UI ICONS ---
+        const Icon = ({ path, className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {path}
+            </svg>
+        );
+
+        const ICONS = {
+            plus: <path d="M12 5v14M5 12h14"/>,
+            x: <path d="M18 6L6 18M6 6l12 12"/>,
+            chart: <path d="M12 20V10M18 20V4M6 20v-4"/>,
+            user: <g><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></g>,
+            edit: <g><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></g>,
+            play: <polygon points="5 3 19 12 5 21 5 3"/>,
+            lock: <g><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></g>,
+            gift: <g><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></g>
         };
 
-        const formatDate = (dateString) => {
-            const options = { weekday: 'short', day: 'numeric', month: 'short' };
-            return new Date(dateString).toLocaleDateString('fr-FR', options);
-        };
-
-        const formatTimeDelta = (days) => {
-            if (days === 0) return 'Auj.';
-            if (days === 1) return 'Demain';
-            return `+${days}j`;
-        };
-
-        const generateTopicCurveData = (topic) => {
+        // --- LOGIQUE MÉMOIRE ---
+        const getRetentionCurves = (deck) => {
+            if (!deck || deck.cards.length === 0) return [];
             const data = [];
-            const createdDate = topic.history.length > 0 ? new Date(topic.history[0].date) : new Date();
-            let currentStability = 2;
-            const maxDays = 30; 
+            const decay = 3; // Demi-vie théorique
 
-            for (let i = 0; i <= maxDays; i++) {
-                const dateAtI = new Date(createdDate);
-                dateAtI.setDate(createdDate.getDate() + i);
+            for (let i = 0; i <= 30; i++) {
+                const dayLabel = `J+${i}`;
+                const theoRet = 100 * Math.exp(-i / decay);
+                let sumRealRet = 0;
                 
-                const theoreticalRetention = 100 * Math.exp(-i / 3);
-
-                let realRetention = 0;
-                const pastReviews = topic.history.filter(h => new Date(h.date) <= dateAtI);
-                
-                if (pastReviews.length === 0) {
-                    const daysSinceCreation = i;
-                    realRetention = 100 * Math.exp(-daysSinceCreation / currentStability);
-                } else {
-                    const lastReview = pastReviews[pastReviews.length - 1];
-                    const daysSinceLastReview = (dateAtI - new Date(lastReview.date)) / (1000 * 60 * 60 * 24);
-                    const effectiveStability = currentStability * Math.pow(1.8, pastReviews.length); 
-                    realRetention = 100 * Math.exp(-daysSinceLastReview / effectiveStability);
-                }
-
-                const isReviewDay = topic.history.some(h => {
-                    const d = new Date(h.date);
-                    return d.getDate() === dateAtI.getDate() && d.getMonth() === dateAtI.getMonth();
+                deck.cards.forEach(card => {
+                    const lastReview = card.history.length > 0 ? new Date(card.history[card.history.length-1].date) : new Date();
+                    const simulatedDate = new Date();
+                    simulatedDate.setDate(new Date().getDate() + i);
+                    
+                    if (simulatedDate < lastReview) sumRealRet += 100;
+                    else {
+                        const daysDiff = (simulatedDate - lastReview) / (1000 * 60 * 60 * 24);
+                        const stability = Math.max(card.level * 3, 1); 
+                        const ret = 100 * Math.exp(-daysDiff / stability);
+                        sumRealRet += ret;
+                    }
                 });
-                if (isReviewDay || i === 0) realRetention = 100;
 
                 data.push({
-                    day: `J+${i}`,
-                    theoretical: theoreticalRetention,
-                    real: realRetention
+                    day: dayLabel,
+                    theorique: Math.round(theoRet),
+                    reelle: Math.round(sumRealRet / deck.cards.length)
                 });
             }
             return data;
         };
 
-        function StudyFlow() {
-            const [activeTab, setActiveTab] = useState('dashboard');
-            const [topics, setTopics] = useState(INITIAL_TOPICS);
-            const [userStats, setUserStats] = useState({ xp: 0, level: 1, streak: 1 });
+        const calculateNextReview = (card, rating) => {
+            let interval = 1;
+            let level = card.level;
             
-            const [selectedTopic, setSelectedTopic] = useState(null);
-            const [analyzingTopic, setAnalyzingTopic] = useState(null);
-            const [showAddModal, setShowAddModal] = useState(false);
-            const [newTopicForm, setNewTopicForm] = useState({ title: '', subject: 'maths', content: '' });
-
-            const today = new Date();
+            if (rating === 1) { level = 1; interval = 0; }
+            else if (rating === 2) { interval = 1; }
+            else {
+                if (level === 1) interval = 3;
+                else if (level === 2) interval = 6;
+                else interval = Math.round(card.interval * (rating === 4 ? 2.5 : 1.8));
+                level++;
+            }
             
-            const dueTopics = useMemo(() => {
-                return topics.filter(t => new Date(t.nextReview) <= today).sort((a,b) => new Date(a.nextReview) - new Date(b.nextReview));
-            }, [topics]);
+            const nextDate = new Date();
+            nextDate.setDate(nextDate.getDate() + interval);
+            return { ...card, level, interval, nextReview: nextDate.toISOString(), history: [...card.history, { date: new Date().toISOString(), rating }] };
+        };
 
-            const levelProgress = (userStats.xp % 1000) / 10; 
+        // --- COMPOSANT PRINCIPAL ---
+        function NeuroFlowUltimate() {
+            const [view, setView] = useState('home');
+            const [user, setUser] = useState({ name: "Alexandre", xp: 120, avatar: "👨‍🎓", theme: "blue", trophies: [] });
+            const [decks, setDecks] = useState(INITIAL_DECKS);
+            const [selectedDeck, setSelectedDeck] = useState(null);
+            const [session, setSession] = useState(null);
+            const [builder, setBuilder] = useState({ title: '', subject: 'maths', cards: [] });
+            const [tempCard, setTempCard] = useState({ q: '', a: '' });
 
-            const handleReview = (rating) => {
-                if (!selectedTopic) return;
-                const intervals = getNextIntervals(selectedTopic.interval || 0, selectedTopic.level);
-                let nextInterval = intervals[rating] || 0;
-                const nextDate = new Date();
-                nextDate.setDate(nextDate.getDate() + nextInterval);
-                let xpGain = rating === 'easy' ? 20 : rating === 'good' ? 15 : rating === 'hard' ? 10 : 5;
+            // Levels Logic
+            const currentLevel = LEVELS.slice().reverse().find(l => user.xp >= l.xp) || LEVELS[0];
+            const nextLevel = LEVELS.find(l => l.lvl === currentLevel.lvl + 1);
+            const progress = nextLevel ? ((user.xp - currentLevel.xp) / (nextLevel.xp - currentLevel.xp)) * 100 : 100;
+            const activeTheme = THEMES[user.theme] || THEMES.blue;
 
-                const updatedTopics = topics.map(t => {
-                    if (t.id === selectedTopic.id) {
-                        return { 
-                            ...t, 
-                            level: t.level + 1,
-                            interval: nextInterval,
-                            nextReview: nextDate.toISOString(),
-                            lastReviewed: new Date().toISOString(),
-                            status: 'reviewed',
-                            history: [...t.history, { date: new Date().toISOString(), rating }]
-                        };
-                    }
-                    return t;
-                });
-                setTopics(updatedTopics);
-                setUserStats(prev => ({ ...prev, xp: prev.xp + xpGain, level: Math.floor((prev.xp + xpGain) / 1000) + 1 }));
-                setSelectedTopic(null);
+            // FX
+            const triggerConfetti = () => confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#38bdf8', '#818cf8', '#34d399'] });
+
+            // Actions
+            const saveDeck = () => {
+                if (!builder.title) return;
+                const newDeck = { id: Date.now(), ...builder, cards: builder.cards.map(c => ({...c, level: 1, interval: 0, nextReview: new Date().toISOString(), history: []})) };
+                setDecks([...decks, newDeck]);
+                setBuilder({ title: '', subject: 'maths', cards: [] });
+                setView('home');
+                triggerConfetti();
             };
 
-            const handleAddTopic = () => {
-                if (!newTopicForm.title) return;
-                const newTopic = {
-                    id: Date.now(),
-                    subject: newTopicForm.subject,
-                    title: newTopicForm.title,
-                    level: 1,
-                    interval: 0,
-                    nextReview: new Date().toISOString(),
-                    lastReviewed: null,
-                    content: newTopicForm.content || 'Pas de contenu textuel.',
-                    status: 'new',
-                    history: []
-                };
-                setTopics([...topics, newTopic]);
-                setShowAddModal(false);
-                setNewTopicForm({ title: '', subject: 'maths', content: '' });
+            const rateCard = (rating) => {
+                if (!session) return;
+                const card = session.queue[session.idx];
+                const updatedCard = calculateNextReview(card, rating);
+                
+                // Save Card
+                setDecks(prev => prev.map(d => d.id === session.deckId ? { ...d, cards: d.cards.map(c => c.id === card.id ? updatedCard : c) } : d));
+                
+                // Add XP & Check Level Up
+                const xpGain = [0, 5, 10, 15, 20][rating];
+                const newXp = user.xp + xpGain;
+                
+                // Check if level up happened
+                const newLvlObj = LEVELS.slice().reverse().find(l => newXp >= l.xp);
+                if (newLvlObj.lvl > currentLevel.lvl) {
+                    alert(`NIVEAU SUPÉRIEUR ! Vous êtes niveau ${newLvlObj.lvl}.\nRécompense débloquée : ${newLvlObj.reward.name}`);
+                    triggerConfetti();
+                }
+
+                setUser(prev => ({ ...prev, xp: newXp }));
+
+                // Next
+                if (session.idx < session.queue.length - 1) {
+                    setSession({ ...session, idx: session.idx + 1, flipped: false });
+                } else {
+                    setView('home');
+                    triggerConfetti();
+                }
             };
 
-            const Sidebar = () => (
-                <div className="w-20 md:w-64 bg-slate-900/90 backdrop-blur-xl border-r border-white/10 flex flex-col items-center md:items-start py-8 fixed h-full z-10 transition-all">
-                    <div className="px-6 mb-8 flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
-                            <Icon name="Brain" className="text-white w-6 h-6" />
+            // Custom Tooltip pour la courbe
+            const CustomTooltip = ({ active, payload, label }) => {
+                if (active && payload && payload.length) {
+                    const retention = payload[1].value;
+                    const oubli = 100 - retention;
+                    return (
+                        <div className="bg-slate-900 border border-slate-600 p-3 rounded-lg shadow-xl text-sm">
+                            <p className="font-bold text-white mb-2">{label}</p>
+                            <p className="text-cyan-400">Rétention : {retention}%</p>
+                            <p className="text-rose-400 font-bold">Oubli : {oubli}%</p>
                         </div>
-                        <span className="hidden md:block font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">NeuroFlow</span>
-                    </div>
+                    );
+                }
+                return null;
+            };
 
-                    <div className="px-4 mb-6 w-full">
-                        <button onClick={() => setShowAddModal(true)} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white p-3 rounded-xl font-bold shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 transition-all transform hover:scale-105">
-                            <Icon name="PlusCircle" className="w-5 h-5" />
-                            <span className="hidden md:block">Créer</span>
-                        </button>
-                    </div>
+            // --- VUES ---
 
-                    <nav className="flex-1 w-full px-4 space-y-2">
-                        {[
-                            { id: 'dashboard', icon: 'LayoutDashboard', label: 'Tableau de bord' },
-                            { id: 'study', icon: 'Layers', label: 'Mode Révision' },
-                            { id: 'resources', icon: 'FolderOpen', label: 'Mes Cours' },
-                            { id: 'profile', icon: 'User', label: 'Mon Profil' },
-                        ].map((item) => (
-                            <button key={item.id} onClick={() => setActiveTab(item.id)} className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 group ${activeTab === item.id ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
-                                <Icon name={item.icon} className={`w-5 h-5 ${activeTab === item.id ? 'animate-pulse' : ''}`} />
-                                <span className="hidden md:block font-medium">{item.label}</span>
-                                {activeTab === item.id && <div className="hidden md:block ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_10px_#60a5fa]" />}
+            const renderHome = () => (
+                <div className="max-w-6xl mx-auto p-6 space-y-8 animate-slide-up">
+                    {/* Header Joueur */}
+                    <div className="glass-panel rounded-2xl p-6 relative overflow-hidden flex flex-col md:flex-row items-center gap-6">
+                        <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br ${activeTheme.bg} opacity-20 rounded-full blur-[80px] -mr-16 -mt-16 pointer-events-none`}></div>
+                        
+                        <div className={`w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center text-4xl border-4 ${activeTheme.border} shadow-lg z-10`}>
+                            {user.avatar}
+                        </div>
+                        
+                        <div className="flex-1 z-10 w-full text-center md:text-left">
+                            <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
+                                <h1 className="text-3xl font-bold text-white">{user.name}</h1>
+                                <span className={`px-2 py-0.5 rounded text-xs font-bold border ${activeTheme.border} ${activeTheme.text} bg-slate-900/50`}>Niv. {currentLevel.lvl}</span>
+                            </div>
+                            <div className="text-slate-400 text-sm mb-3">{currentLevel.title}</div>
+                            
+                            {/* Barre XP */}
+                            <div className="relative h-4 bg-slate-800 rounded-full overflow-hidden border border-slate-700 w-full max-w-md mx-auto md:mx-0">
+                                <div className={`h-full bg-gradient-to-r ${activeTheme.bg} transition-all duration-1000`} style={{ width: `${progress}%` }}></div>
+                            </div>
+                            <div className="flex justify-between text-xs text-slate-500 mt-1 max-w-md mx-auto md:mx-0">
+                                <span>{user.xp} XP</span>
+                                <span>Prochain: {nextLevel ? nextLevel.reward.name : 'Max'}</span>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 z-10">
+                            <button onClick={() => setView('profile')} className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 transition">
+                                <Icon path={ICONS.user} className="w-6 h-6 text-slate-300" />
                             </button>
-                        ))}
-                    </nav>
+                            <button onClick={() => setView('builder')} className={`px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r ${activeTheme.bg} shadow-lg hover:opacity-90 flex items-center gap-2 transition`}>
+                                <Icon path={ICONS.plus} className="w-5 h-5" /> Créer
+                            </button>
+                        </div>
+                    </div>
 
-                    <div className="w-full px-4 mt-auto">
-                        <div className="bg-slate-800/50 rounded-xl p-4 border border-white/5">
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="bg-yellow-500/20 p-2 rounded-lg text-yellow-400"><Icon name="Zap" className="w-4 h-4" /></div>
-                                <div className="hidden md:block">
-                                    <div className="text-xs text-slate-400">Niveau {userStats.level}</div>
-                                    <div className="text-sm font-bold text-white">{userStats.xp} XP</div>
+                    {/* Liste Decks */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {decks.map(deck => {
+                            const sub = SUBJECTS.find(s => s.id === deck.subject);
+                            const due = deck.cards.filter(c => new Date(c.nextReview) <= new Date()).length;
+                            const isSelected = selectedDeck && selectedDeck.id === deck.id;
+
+                            return (
+                                <div key={deck.id} className="glass rounded-2xl p-6 relative overflow-hidden group hover:border-slate-500 transition-all">
+                                    <div className={`absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b ${sub.gradient}`}></div>
+                                    
+                                    <div className="flex justify-between items-start mb-4 pl-4">
+                                        <span className="text-xs font-bold uppercase text-slate-400">{sub.name}</span>
+                                        <button onClick={() => setSelectedDeck(isSelected ? null : deck)} className={`text-slate-500 hover:${activeTheme.text} transition`}>
+                                            <Icon path={ICONS.chart} className="w-5 h-5" />
+                                        </button>
+                                    </div>
+
+                                    <h3 className="text-xl font-bold text-white pl-4 mb-2">{deck.title}</h3>
+                                    <p className="pl-4 text-sm text-slate-400 mb-6">{deck.cards.length} cartes • <span className={due > 0 ? "text-rose-400 font-bold" : "text-green-400"}>{due} à faire</span></p>
+
+                                    {isSelected && (
+                                        <div className="h-48 bg-slate-900/50 rounded-lg p-2 mb-4 animate-slide-up border border-slate-700 mx-4">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <LineChart data={getRetentionCurves(deck)}>
+                                                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                                                    <XAxis hide />
+                                                    <YAxis hide domain={[0, 100]} />
+                                                    <Tooltip content={<CustomTooltip />} />
+                                                    <Line type="monotone" dataKey="theorique" stroke="#ef4444" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                                                    <Line type="monotone" dataKey="reelle" stroke="#22d3ee" strokeWidth={3} dot={false} />
+                                                </LineChart>
+                                            </ResponsiveContainer>
+                                            <p className="text-center text-xs text-slate-500 mt-1">Rouge: Théorique | Bleu: Réel</p>
+                                        </div>
+                                    )}
+
+                                    <div className="pl-4">
+                                        <button 
+                                            onClick={() => {
+                                                const queue = deck.cards.filter(c => new Date(c.nextReview) <= new Date());
+                                                if (queue.length === 0) return alert("Rien à réviser !");
+                                                setSession({ deckId: deck.id, queue, idx: 0, flipped: false });
+                                                setView('session');
+                                            }}
+                                            disabled={due === 0}
+                                            className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition 
+                                                ${due > 0 ? `bg-gradient-to-r ${activeTheme.bg} text-white shadow-lg` : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'}`}
+                                        >
+                                            {due > 0 ? <span className="flex items-center gap-2"><Icon path={ICONS.play} className="w-4 h-4"/> Réviser</span> : "Terminé ✅"}
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+
+            const renderProfile = () => (
+                <div className="fixed inset-0 bg-slate-900/95 z-50 flex items-center justify-center p-4">
+                    <div className="bg-slate-800 w-full max-w-2xl rounded-2xl border border-slate-700 shadow-2xl flex flex-col max-h-[90vh] animate-slide-up">
+                        <div className="p-6 border-b border-slate-700 flex justify-between items-center">
+                            <h2 className="text-2xl font-bold text-white">Profil & Inventaire</h2>
+                            <button onClick={() => setView('home')} className="text-slate-400 hover:text-white"><Icon path={ICONS.x} className="w-6 h-6"/></button>
+                        </div>
+                        
+                        <div className="p-6 overflow-y-auto custom-scrollbar space-y-8">
+                            {/* Pseudo */}
+                            <div>
+                                <label className="block text-slate-400 text-sm mb-2">Votre Pseudo</label>
+                                <input type="text" value={user.name} onChange={e => setUser({...user, name: e.target.value})} className="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none" />
+                            </div>
+
+                            {/* Avatars */}
+                            <div>
+                                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Icon path={ICONS.user} className="w-5 h-5 text-cyan-400"/> Avatars</h3>
+                                <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+                                    {['👨‍🎓', '👩‍🎓', '🧠', '🦁', '🚀', '👑'].map((emoji, i) => {
+                                        // Simple logique : débloqué si on a atteint un certain niveau ou par défaut
+                                        const locked = i > 1 && currentLevel.lvl < (i + 1); 
+                                        return (
+                                            <button 
+                                                key={i} 
+                                                disabled={locked}
+                                                onClick={() => setUser({...user, avatar: emoji})}
+                                                className={`aspect-square rounded-xl flex items-center justify-center text-2xl border-2 transition relative
+                                                    ${user.avatar === emoji ? `border-${activeTheme.border.split('-')[1]}-500 bg-slate-700` : 'border-slate-700 bg-slate-900'}
+                                                    ${locked ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-500'}
+                                                `}
+                                            >
+                                                {locked ? <Icon path={ICONS.lock} className="w-5 h-5 text-slate-500"/> : emoji}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
-                            <div className="h-2 w-full bg-slate-700 rounded-full overflow-hidden">
-                                <div className="h-full bg-gradient-to-r from-yellow-400 to-orange-500 transition-all duration-1000" style={{ width: `${levelProgress}%` }} />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
 
-            const DashboardView = () => (
-                <div className="space-y-8 animate-in">
-                    <div className="flex justify-between items-end">
-                        <div>
-                            <h1 className="text-3xl font-bold text-white mb-2">Bonjour ! 🚀</h1>
-                            <p className="text-slate-400">{dueTopics.length > 0 ? <span>Tu as <span className="text-cyan-400 font-bold">{dueTopics.length} cartes</span> à réviser.</span> : "Tout est à jour."}</p>
-                        </div>
-                        <div className="flex items-center gap-2 bg-slate-800/50 px-4 py-2 rounded-full border border-white/10">
-                            <Icon name="Award" className="text-orange-400 w-5 h-5" />
-                            <span className="text-white font-bold">{userStats.streak} jours</span>
-                        </div>
-                    </div>
-                    <div className="bg-slate-800/40 backdrop-blur-md p-6 rounded-2xl border border-white/5">
-                        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><Icon name="Activity" className="text-cyan-400 w-5 h-5" /> Activité (Simulation)</h2>
-                        <div className="h-64 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={[{day: 'Lun', val: 2}, {day: 'Mar', val: 5}, {day: 'Mer', val: 3}, {day: 'Jeu', val: 8}, {day: 'Ven', val: 1}, {day: 'Sam', val: 0}, {day: 'Dim', val: dueTopics.length}]}>
-                                    <defs>
-                                        <linearGradient id="colorActivity" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#22d3ee" stopOpacity={0.3}/><stop offset="95%" stopColor="#22d3ee" stopOpacity={0}/></linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                                    <XAxis dataKey="day" stroke="#94a3b8" />
-                                    <YAxis stroke="#94a3b8" />
-                                    <RechartsTooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: 'white' }} />
-                                    <Area type="monotone" dataKey="val" stroke="#22d3ee" strokeWidth={3} fill="url(#colorActivity)" />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-                </div>
-            );
+                            {/* Thèmes */}
+                            <div>
+                                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Icon path={ICONS.gift} className="w-5 h-5 text-purple-400"/> Thèmes</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {Object.entries(THEMES).map(([key, t]) => {
+                                        // CORRECTIF: Remplacement de l'optional chaining par une vérification standard
+                                        const levelObj = LEVELS.find(l => l.reward.type === 'theme' && l.reward.id === key);
+                                        const requiredLvl = levelObj ? levelObj.lvl : 1;
+                                        
+                                        const locked = currentLevel.lvl < requiredLvl;
 
-            const StudyView = () => (
-                <div className="max-w-3xl mx-auto space-y-6">
-                    <h2 className="text-2xl font-bold text-white">Session de Révision</h2>
-                    {dueTopics.length === 0 ? (
-                        <div className="text-center py-20 bg-slate-800/30 rounded-3xl border border-dashed border-slate-700">
-                            <div className="inline-block p-6 bg-green-500/10 rounded-full mb-4"><Icon name="CheckCircle" className="w-12 h-12 text-green-400" /></div>
-                            <h3 className="text-xl font-bold text-white mb-2">Tout est à jour !</h3>
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                            {dueTopics.map(topic => {
-                                const subjectInfo = SUBJECTS.find(s => s.id === topic.subject);
-                                const intervals = getNextIntervals(topic.interval || 0, topic.level);
-                                return (
-                                    <div key={topic.id} className="bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl border border-white/5 hover:border-cyan-500/30 transition-all group relative overflow-hidden">
-                                        <div className="absolute top-0 left-0 w-1 h-full" style={{ backgroundColor: subjectInfo.color }} />
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div>
-                                                <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1 block">{subjectInfo.name}</span>
-                                                <h3 className="text-xl font-bold text-white">{topic.title}</h3>
-                                            </div>
-                                            <div className="bg-slate-950 p-2 rounded-lg text-slate-400 group-hover:text-cyan-400 transition-colors cursor-pointer" onClick={() => setSelectedTopic(topic)}><Icon name="ChevronRight" className="w-6 h-6" /></div>
-                                        </div>
-                                        <div className="flex items-center gap-4 text-sm text-slate-500">
-                                            <span className="flex items-center gap-1"><Icon name="Clock" className="w-3 h-3" /> Intervalle: {topic.interval}j</span>
-                                        </div>
-                                        {selectedTopic && selectedTopic.id === topic.id && (
-                                            <div className="absolute inset-0 bg-slate-900 z-20 p-6 flex flex-col animate-in">
-                                                <div className="flex-1 overflow-y-auto mb-4 custom-scrollbar">
-                                                    <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-4">
-                                                        <h3 className="text-lg font-bold text-white">{topic.title}</h3>
-                                                        <button onClick={() => setSelectedTopic(null)} className="text-slate-400 hover:text-white"><Icon name="XCircle" /></button>
+                                        return (
+                                            <button 
+                                                key={key}
+                                                disabled={locked}
+                                                onClick={() => setUser({...user, theme: key})}
+                                                className={`p-4 rounded-xl border-2 flex items-center justify-between transition
+                                                    ${user.theme === key ? `border-${t.border.split('-')[1]}-500 bg-slate-800` : 'border-slate-700 bg-slate-900'}
+                                                    ${locked ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-800'}
+                                                `}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${t.bg}`}></div>
+                                                    <div className="text-left">
+                                                        <div className="font-bold text-white capitalize">{key}</div>
+                                                        <div className="text-xs text-slate-400">{locked ? `Niveau ${requiredLvl}` : 'Débloqué'}</div>
                                                     </div>
-                                                    <p className="text-slate-300 text-lg leading-relaxed whitespace-pre-wrap">{topic.content}</p>
                                                 </div>
-                                                <div className="grid grid-cols-4 gap-3 mt-auto pt-4 border-t border-white/10">
-                                                    <button onClick={() => handleReview('again')} className="bg-red-500/10 hover:bg-red-500 text-red-400 py-3 rounded-xl flex flex-col items-center"><span className="font-bold">À revoir</span><span className="text-xs">{formatTimeDelta(intervals.again)}</span></button>
-                                                    <button onClick={() => handleReview('hard')} className="bg-orange-500/10 hover:bg-orange-500 text-orange-400 py-3 rounded-xl flex flex-col items-center"><span className="font-bold">Difficile</span><span className="text-xs">{formatTimeDelta(intervals.hard)}</span></button>
-                                                    <button onClick={() => handleReview('good')} className="bg-blue-500/10 hover:bg-blue-500 text-blue-400 py-3 rounded-xl flex flex-col items-center"><span className="font-bold">Correct</span><span className="text-xs">{formatTimeDelta(intervals.good)}</span></button>
-                                                    <button onClick={() => handleReview('easy')} className="bg-green-500/10 hover:bg-green-500 text-green-400 py-3 rounded-xl flex flex-col items-center"><span className="font-bold">Facile</span><span className="text-xs">{formatTimeDelta(intervals.easy)}</span></button>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-            );
-
-            const ResourcesView = () => (
-                <div className="space-y-6">
-                    <h2 className="text-2xl font-bold text-white">Mes Cours & Flashcards</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {topics.map(topic => (
-                            <div key={topic.id} className="bg-slate-800/40 p-4 rounded-xl border border-white/5 hover:bg-slate-800/60 transition-colors flex flex-col">
-                                <div className="flex justify-between items-start mb-2">
-                                    <span className={`px-2 py-1 rounded text-xs font-bold uppercase bg-opacity-20`} style={{ backgroundColor: SUBJECTS.find(s=>s.id===topic.subject).color + '33', color: SUBJECTS.find(s=>s.id===topic.subject).color }}>{SUBJECTS.find(s=>s.id===topic.subject).name}</span>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => setAnalyzingTopic(topic)} className="text-cyan-500 hover:text-cyan-300"><Icon name="TrendingUp" className="w-4 h-4" /></button>
-                                        <button onClick={() => setTopics(topics.filter(t => t.id !== topic.id))} className="text-slate-500 hover:text-red-400"><Icon name="Trash2" className="w-4 h-4" /></button>
-                                    </div>
-                                </div>
-                                <h4 className="font-bold text-white mb-2">{topic.title}</h4>
-                                <div className="text-sm text-slate-400 line-clamp-3 mb-4 flex-1 whitespace-pre-wrap">{topic.content}</div>
-                                <div className="flex items-center justify-between text-xs text-slate-500 mt-auto pt-3 border-t border-white/5">
-                                    <span className="flex items-center gap-1"><Icon name="FileText" className="w-3 h-3" /> Flashcard</span>
-                                    <span>Prochaine: {formatDate(topic.nextReview)}</span>
+                                                {locked && <Icon path={ICONS.lock} className="w-5 h-5 text-slate-500"/>}
+                                                {!locked && user.theme === key && <div className="w-3 h-3 rounded-full bg-green-500"></div>}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
-                        ))}
+
+                            {/* Trophées */}
+                            <div>
+                                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Icon path={ICONS.chart} className="w-5 h-5 text-yellow-400"/> Trophées</h3>
+                                <div className="flex gap-4 p-4 bg-slate-900 rounded-xl border border-slate-700">
+                                    {currentLevel.lvl >= 4 ? <span className="text-3xl" title="Bronze">🥉</span> : <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center"><Icon path={ICONS.lock} className="w-4 h-4 text-slate-600"/></div>}
+                                    {currentLevel.lvl >= 10 ? <span className="text-3xl" title="Or">🏆</span> : <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center"><Icon path={ICONS.lock} className="w-4 h-4 text-slate-600"/></div>}
+                                    <span className="text-xs text-slate-500 self-center ml-auto">Jouez pour débloquer plus !</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    {analyzingTopic && (
-                        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in">
-                            <div className="bg-slate-900 border border-white/10 w-full max-w-2xl rounded-2xl p-6 shadow-2xl">
-                                <div className="flex justify-between items-center mb-6">
-                                    <div><h3 className="text-xl font-bold text-white">Analyse de la Rétention</h3><p className="text-slate-400 text-sm">{analyzingTopic.title}</p></div>
-                                    <button onClick={() => setAnalyzingTopic(null)} className="text-slate-400 hover:text-white"><Icon name="XCircle" /></button>
-                                </div>
-                                <div className="h-64 w-full bg-slate-800/30 rounded-xl p-4 mb-4">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <LineChart data={generateTopicCurveData(analyzingTopic)}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                                            <XAxis dataKey="day" stroke="#94a3b8" interval={4} />
-                                            <YAxis domain={[0, 100]} stroke="#94a3b8" />
-                                            <RechartsTooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: 'white' }} />
-                                            <Line type="monotone" dataKey="theoretical" stroke="#ef4444" strokeWidth={2} dot={false} strokeDasharray="5 5" />
-                                            <Line type="monotone" dataKey="real" stroke="#22d3ee" strokeWidth={3} dot={false} />
-                                        </LineChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             );
 
-            const ProfileView = () => (
-                <div className="space-y-8 animate-in">
-                    <h2 className="text-2xl font-bold text-white">Mon Profil</h2>
-                    <div className="bg-slate-800/60 backdrop-blur-md p-8 rounded-2xl border border-white/5 flex items-center gap-8">
-                        <div className="w-24 h-24 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-3xl font-bold text-white border-4 border-slate-900">EF</div>
-                        <div>
-                            <h3 className="text-2xl font-bold text-white mb-1">Étudiant Futuriste</h3>
-                            <div className="flex gap-3 mt-4">
-                                <span className="flex items-center gap-2 bg-blue-500/10 px-4 py-2 rounded-full border border-blue-500/20 text-blue-300"><Icon name="Zap" className="w-4 h-4" /> Niv. {userStats.level}</span>
-                                <span className="flex items-center gap-2 bg-orange-500/10 px-4 py-2 rounded-full border border-orange-500/20 text-orange-300"><Icon name="Award" className="w-4 h-4" /> {userStats.streak} Série</span>
+            // Rendu conditionnel des autres vues (Session, Builder) reste similaire mais utilise activeTheme
+            // ... (Code abrégé pour Builder et Session, ils sont structurellement identiques à la v3 précédente 
+            // mais utilisent maintenant `activeTheme.bg` pour les boutons principaux)
+
+            const renderSession = () => {
+                if (!session) return null;
+                const card = session.queue[session.idx];
+                return (
+                    <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center p-4">
+                        <div className="w-full max-w-3xl perspective-1000 h-[500px] relative group animate-slide-up" onClick={() => setSession({...session, flipped: true})}>
+                            <div className={`relative w-full h-full text-center transition-transform duration-700 transform-style-3d ${session.flipped ? 'rotate-y-180' : ''}`}>
+                                <div className={`absolute w-full h-full backface-hidden rounded-3xl p-10 flex flex-col items-center justify-center bg-slate-800 border border-slate-600 shadow-2xl cursor-pointer hover:border-${activeTheme.border.split('-')[1]}-500/50 transition`}>
+                                    <div className={`${activeTheme.text} font-bold tracking-widest uppercase text-sm mb-8`}>Question</div>
+                                    <div className="text-4xl font-bold text-white">{card.q}</div>
+                                    <div className="mt-12 text-slate-500 text-sm animate-bounce">Appuyez pour retourner</div>
+                                </div>
+                                <div className="absolute w-full h-full backface-hidden rotate-y-180 rounded-3xl p-10 flex flex-col items-center justify-center bg-slate-900 border border-slate-700 shadow-2xl">
+                                    <div className="text-emerald-400 font-bold tracking-widest uppercase text-sm mb-8">Réponse</div>
+                                    <div className="text-3xl text-slate-200">{card.a}</div>
+                                    <div className="absolute bottom-10 left-0 w-full px-10 grid grid-cols-4 gap-4">
+                                        {[1, 2, 3, 4].map(r => (
+                                            <button key={r} onClick={(e) => { e.stopPropagation(); rateCard(r); }} className="py-3 rounded-lg bg-slate-800 border border-slate-600 hover:bg-slate-700 text-white font-bold transition">
+                                                {['Revoir', 'Dur', 'Bon', 'Facile'][r-1]}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         </div>
+                    </div>
+                );
+            };
+
+            const renderBuilder = () => (
+                <div className="fixed inset-0 bg-slate-900/95 z-50 flex items-center justify-center p-4">
+                    <div className="w-full max-w-4xl bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="p-6 border-b border-slate-700 flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Nouveau Cours</h2><button onClick={() => setView('home')} className="text-slate-400 hover:text-white"><Icon path={ICONS.x} className="w-6 h-6"/></button></div>
+                        <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+                            <div className="grid grid-cols-2 gap-6">
+                                <input type="text" className="bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500" placeholder="Titre du cours" value={builder.title} onChange={e => setBuilder({...builder, title: e.target.value})} />
+                                <div className="flex gap-2 items-center">{SUBJECTS.map(s => <button key={s.id} onClick={() => setBuilder({...builder, subject: s.id})} className={`w-8 h-8 rounded-full border-2 ${builder.subject === s.id ? 'border-white scale-110' : 'border-transparent opacity-50'}`} style={{backgroundColor: s.color}} />)}</div>
+                            </div>
+                            <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-700 space-y-4">
+                                <input type="text" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none" placeholder="Question" value={tempCard.q} onChange={e => setTempCard({...tempCard, q: e.target.value})} />
+                                <input type="text" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none" placeholder="Réponse" value={tempCard.a} onChange={e => setTempCard({...tempCard, a: e.target.value})} />
+                                <button onClick={() => { if(tempCard.q && tempCard.a) { setBuilder({...builder, cards: [...builder.cards, {id: Date.now(), ...tempCard}]}); setTempCard({q:'', a:''}); }}} className="w-full py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold">+ Ajouter</button>
+                            </div>
+                            <div className="space-y-2">{builder.cards.map(c => <div key={c.id} className="p-3 bg-slate-800 rounded border border-slate-700 flex justify-between"><span className="text-white">{c.q}</span><span className="text-slate-400">{c.a}</span></div>)}</div>
+                        </div>
+                        <div className="p-6 border-t border-slate-700 flex justify-end"><button onClick={saveDeck} className={`px-8 py-3 rounded-xl font-bold text-white bg-gradient-to-r ${activeTheme.bg}`}>Sauvegarder</button></div>
                     </div>
                 </div>
             );
 
             return (
-                <div className="min-h-screen relative">
-                    <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-                        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-900/20 rounded-full blur-[120px]" />
-                        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-900/20 rounded-full blur-[120px]" />
-                    </div>
-                    <Sidebar />
-                    <main className="md:ml-64 p-6 md:p-10 relative z-1">
-                        {activeTab === 'dashboard' && <DashboardView />}
-                        {activeTab === 'study' && <StudyView />}
-                        {activeTab === 'resources' && <ResourcesView />}
-                        {activeTab === 'profile' && <ProfileView />}
-                    </main>
-
-                    {showAddModal && (
-                        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-                            <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-2xl p-6 shadow-2xl animate-in">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="text-xl font-bold text-white">Ajouter un Sujet</h3>
-                                    <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white"><Icon name="XCircle" /></button>
-                                </div>
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm text-slate-400 mb-1">Matière</label>
-                                        <div className="flex gap-2">
-                                            {SUBJECTS.map(sub => (
-                                                <button key={sub.id} onClick={() => setNewTopicForm({...newTopicForm, subject: sub.id})} className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all ${newTopicForm.subject === sub.id ? `border-[${sub.color}] bg-slate-700 text-white` : 'border-slate-700 text-slate-400 hover:bg-slate-800'}`} style={{ borderColor: newTopicForm.subject === sub.id ? sub.color : '' }}>{sub.name.substring(0, 3)}</button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div><label className="block text-sm text-slate-400 mb-1">Titre</label><input type="text" value={newTopicForm.title} onChange={(e) => setNewTopicForm({...newTopicForm, title: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white" placeholder="Titre..." /></div>
-                                    <div><label className="block text-sm text-slate-400 mb-1">Contenu</label><textarea rows={4} value={newTopicForm.content} onChange={(e) => setNewTopicForm({...newTopicForm, content: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white" placeholder="Contenu..." /></div>
-                                </div>
-                                <div className="mt-8 flex justify-end gap-3">
-                                    <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-slate-400">Annuler</button>
-                                    <button onClick={handleAddTopic} className="px-6 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold rounded-lg">Créer</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                <div className="min-h-screen pb-10">
+                    {view === 'home' && renderHome()}
+                    {view === 'profile' && renderProfile()}
+                    {view === 'session' && renderSession()}
+                    {view === 'builder' && renderBuilder()}
                 </div>
             );
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<StudyFlow />);
+        root.render(<NeuroFlowUltimate />);
     </script>
 </body>
 </html>
