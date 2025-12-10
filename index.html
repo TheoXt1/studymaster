@@ -7,40 +7,72 @@
     
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
     
-    <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
-    <script src="https://unpkg.com/lucide-react/dist/umd/lucide-react.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.10.3/umd/Recharts.min.js"></script>
+    <script src="https://unpkg.com/lucide-react@0.294.0/dist/umd/lucide-react.min.js"></script>
 
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        /* CSS Personnalisé pour masquer la scrollbar */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* Style pour les erreurs */
+        #error-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1e1e1e; color: #ff6b6b; padding: 20px; z-index: 9999; font-family: monospace; overflow: auto; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-200">
+    
+    <div id="error-overlay">
+        <h1 class="text-xl font-bold mb-4">Oups ! Une erreur est survenue</h1>
+        <p id="error-message">Chargement en cours...</p>
+        <p class="text-sm text-gray-400 mt-4">Astuce : Vérifiez votre connexion internet, certaines librairies ne peuvent pas se charger.</p>
+    </div>
+
     <div id="root"></div>
 
+    <script>
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            document.getElementById('error-overlay').style.display = 'block';
+            document.getElementById('error-message').innerText = 
+                "Erreur : " + msg + "\nLigne : " + lineNo + "\nFichier : " + url;
+            return false;
+        };
+    </script>
+
     <script type="text/babel">
-        // --- PRÉPARATION DES OUTILS ---
+        // --- VÉRIFICATION ET CHARGEMENT DES OUTILS ---
+        
+        // On sécurise le chargement des librairies
+        const React = window.React;
+        const ReactDOM = window.ReactDOM;
         const { useState, useEffect, useRef } = React;
         
-        // On récupère toutes les icônes de Lucide
+        // LucideReact peut s'appeler différemment selon la version du CDN
+        const LucideIcons = window.lucideReact || window.LucideReact;
+        
+        if (!LucideIcons) {
+            throw new Error("La librairie d'icônes 'Lucide' n'a pas pu se charger.");
+        }
+        
+        // On récupère toutes les icônes
         const { 
             BookOpen, Brain, TrendingUp, Upload, Plus, Check, X, Clock, Zap, Award, 
             ChevronRight, FileText, BarChart2, LayoutDashboard, Save, Trash2, 
             ArrowLeft, User, Edit2, Calendar, Download, AlertCircle 
-        } = window.LucideReact;
+        } = LucideIcons;
 
-        // On récupère les graphiques de Recharts
+        // On récupère Recharts
+        const RechartsLib = window.Recharts;
+        if (!RechartsLib) {
+            throw new Error("La librairie 'Recharts' n'a pas pu se charger.");
+        }
         const { 
             XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area 
-        } = window.Recharts;
+        } = RechartsLib;
 
-        // --- VOTRE CODE STUDYMASTER ---
+        // --- VOTRE CODE STUDYMASTER (Identique à avant) ---
 
         // Configuration
         const SUBJECTS_CONFIG = [
@@ -127,8 +159,6 @@
 
         // --- MAIN APP ---
         function StudyApp() {
-          // --- STATE ---
-          
           const [decks, setDecks] = useState(() => {
             try {
               const saved = localStorage.getItem('sm_decks');
@@ -158,35 +188,28 @@
             }
           });
 
-          // UI State
           const [activeTab, setActiveTab] = useState('dashboard');
           const [selectedSubject, setSelectedSubject] = useState(null);
           const [isStudying, setIsStudying] = useState(false);
           const [activeDeckId, setActiveDeckId] = useState(null);
           
-          // Study Session State
           const [sessionQueue, setSessionQueue] = useState([]);
           const [currentCardIndex, setCurrentCardIndex] = useState(0);
           const [showAnswer, setShowAnswer] = useState(false);
 
-          // Modal State
           const [isDeckModalOpen, setIsDeckModalOpen] = useState(false);
           const [isCardModalOpen, setIsCardModalOpen] = useState(false);
           const [newDeckTitle, setNewDeckTitle] = useState("");
           const [newCardFront, setNewCardFront] = useState("");
           const [newCardBack, setNewCardBack] = useState("");
           
-          // Profile Edit State
           const [isEditingName, setIsEditingName] = useState(false);
           const [tempName, setTempName] = useState("");
           const fileInputRef = useRef(null);
 
-          // --- PERSISTENCE ---
           useEffect(() => { localStorage.setItem('sm_decks', JSON.stringify(decks)); }, [decks]);
           useEffect(() => { localStorage.setItem('sm_cards', JSON.stringify(cards)); }, [cards]);
           useEffect(() => { localStorage.setItem('sm_stats', JSON.stringify(userStats)); }, [userStats]);
-
-          // --- ACTIONS ---
 
           const createDeck = () => {
             if (!newDeckTitle.trim() || !selectedSubject) return;
@@ -372,8 +395,6 @@
             }
             return data;
           };
-
-          // --- RENDERERS ---
 
           const renderDashboard = () => (
             <div className="space-y-8 animate-in fade-in duration-500">
@@ -603,7 +624,6 @@
                 </div>
               </Card>
 
-              {/* --- BACKUP SECTION --- */}
               <Card className="p-6 border-indigo-500/30">
                 <h3 className="text-xl font-bold text-white flex items-center gap-2 mb-4">
                     <Save className="text-indigo-400" /> Sauvegarde & Données
@@ -791,7 +811,6 @@
           return (
             <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30 pb-20 md:pb-0">
               
-              {/* HEADER */}
               <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-4 py-3">
                 <div className="max-w-6xl mx-auto flex items-center justify-between">
                   <div 
@@ -823,7 +842,6 @@
                 </div>
               </header>
 
-              {/* CONTENT */}
               <main className="max-w-6xl mx-auto px-4 py-8">
                 {!isStudying && (
                    <div className="flex gap-2 overflow-x-auto pb-4 mb-6 no-scrollbar">
@@ -858,8 +876,6 @@
                  renderDashboard()}
               </main>
 
-              {/* MODALS */}
-              
               <Modal 
                 isOpen={isDeckModalOpen} 
                 onClose={() => setIsDeckModalOpen(false)} 
@@ -917,7 +933,6 @@
           );
         }
 
-        // --- DEMARRAGE DE L'APPLICATION ---
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<StudyApp />);
 
