@@ -3,671 +3,286 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroFlow 13.2 - Clean Edition</title>
-    
-    <!-- OUTILS -->
+    <title>CV Théotime Camet</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
-    <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
-    <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* DESIGN SYSTEM */
-        body { 
-            background-color: #020617; 
-            color: #f8fafc; 
-            font-family: 'Inter', system-ui, -apple-system, sans-serif; 
-            overflow-x: hidden;
-            background-image: 
-                radial-gradient(circle at 15% 50%, rgba(56, 189, 248, 0.08), transparent 25%), 
-                radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.08), transparent 25%);
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
 
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+        .a4-container {
+            width: 21cm;
+            min-height: 29.7cm;
+            margin: 2rem auto;
+            background: white;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            display: flex;
+            overflow: hidden;
+        }
 
-        .glass { 
-            background: rgba(15, 23, 42, 0.6); 
-            backdrop-filter: blur(12px); 
-            border: 1px solid rgba(255, 255, 255, 0.08); 
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+        /* Instructions d'impression pour avoir un PDF parfait */
+        @media print {
+            body {
+                background-color: white;
+            }
+            .a4-container {
+                margin: 0;
+                box-shadow: none;
+                width: 100%;
+                height: 100%;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+
+        .sidebar {
+            width: 32%;
+            background-color: #0f172a; /* Noir/Bleu très profond */
+            color: white;
+            padding: 2.5rem 2rem;
+        }
+
+        .main-content {
+            width: 68%;
+            padding: 2.5rem 3rem;
+            background-color: #ffffff;
+        }
+
+        .section-title {
+            color: #ea580c; /* Orange vibrant */
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #ffedd5;
+            padding-bottom: 0.5rem;
+        }
+
+        .sidebar-title {
+            color: #fdba74; /* Orange clair */
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+            margin-top: 2rem;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 0.5rem;
+        }
+
+        .icon-box {
+            width: 24px;
+            text-align: center;
+            margin-right: 0.75rem;
+            color: #fdba74;
         }
         
-        .glass-card {
-            background: linear-gradient(145deg, rgba(30, 41, 59, 0.4), rgba(15, 23, 42, 0.4));
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        .timeline-dot {
+            position: absolute;
+            left: -5px;
+            top: 6px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #ea580c;
+            border: 2px solid white;
         }
         
-        .glass-card:hover {
-            transform: translateY(-4px);
-            border-color: rgba(255, 255, 255, 0.15);
-            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5);
-        }
-
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
-
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-        .animate-float { animation: float 6s ease-in-out infinite; }
-
-        /* Input Autofill Fix */
-        input:-webkit-autofill,
-        input:-webkit-autofill:hover, 
-        input:-webkit-autofill:focus, 
-        input:-webkit-autofill:active{
-            -webkit-box-shadow: 0 0 0 30px #0f172a inset !important;
-            -webkit-text-fill-color: white !important;
-            transition: background-color 5000s ease-in-out 0s;
+        .timeline-item {
+            position: relative;
+            padding-left: 1.5rem;
+            border-left: 2px solid #e5e7eb;
+            margin-bottom: 1.5rem;
         }
     </style>
 </head>
 <body>
-    <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useMemo, useRef } = React;
-        const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } = Recharts;
+    <!-- Bouton pour aider à l'impression (masqué lors de l'impression) -->
+    <div class="text-center mt-6 no-print">
+        <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow">
+            <i class="fas fa-file-pdf mr-2"></i> Enregistrer en PDF / Imprimer
+        </button>
+        <p class="text-sm text-gray-500 mt-2">Astuce : Si les couleurs n'apparaissent pas à l'impression, cochez "Graphiques d'arrière-plan" dans les paramètres de votre navigateur.</p>
+    </div>
 
-        // --- CONSTANTES ---
-        const MAX_DAILY_REVIEWS = 1;
-        const DB_PREFIX = 'neuroflow_user_'; // Préfixe pour le stockage local
+    <!-- Conteneur principal du CV -->
+    <div class="a4-container">
+        
+        <!-- COLONNE GAUCHE (Sombre) -->
+        <aside class="sidebar">
+            <!-- Photo de profil (Lien d'image à remplacer si vous le souhaitez) -->
+            <div class="flex justify-center mb-6">
+                <div class="w-32 h-32 rounded-full overflow-hidden border-4 border-orange-500 bg-gray-300 shadow-[0_0_15px_rgba(234,88,12,0.4)]">
+                    <!-- Pour mettre votre vraie photo, remplacez le 'src' par le chemin de votre image -->
+                    <img src="https://via.placeholder.com/150/cbd5e1/475569?text=Photo" alt="Théotime Camet" class="w-full h-full object-cover">
+                </div>
+            </div>
 
-        const LEVELS = [
-            { lvl: 1, xp: 0, title: "Novice", reward: { type: 'theme', id: 'blue', name: 'Thème Océan' } },
-            { lvl: 2, xp: 200, title: "Apprenti", reward: { type: 'avatar', id: '🦁', name: 'Avatar Lion' } },
-            { lvl: 3, xp: 500, title: "Initié", reward: { type: 'theme', id: 'purple', name: 'Thème Néon' } },
-            { lvl: 4, xp: 1000, title: "Expert", reward: { type: 'trophy', id: '🥉', name: 'Médaille Bronze' } },
-            { lvl: 5, xp: 2000, title: "Maître", reward: { type: 'avatar', id: '🚀', name: 'Avatar Astronaute' } },
-            { lvl: 6, xp: 3500, title: "Grand Maître", reward: { type: 'theme', id: 'gold', name: 'Thème Royal' } },
-            { lvl: 10, xp: 10000, title: "Légende", reward: { type: 'trophy', id: '🏆', name: 'Coupe Ultime' } }
-        ];
+            <!-- Coordonnées -->
+            <h2 class="sidebar-title mt-0">Coordonnées</h2>
+            <ul class="space-y-3 text-sm text-gray-300">
+                <li class="flex items-center">
+                    <i class="fas fa-phone icon-box"></i>
+                    <span>06 41 49 57 22</span>
+                </li>
+                <li class="flex items-center">
+                    <i class="fas fa-envelope icon-box"></i>
+                    <span class="break-all">theotimecamet2006<br>@gmail.com</span>
+                </li>
+                <li class="flex items-start">
+                    <i class="fas fa-map-marker-alt icon-box mt-1"></i>
+                    <span>9 rue des Tanneries<br>80500 Montdidier</span>
+                </li>
+                <li class="flex items-center">
+                    <i class="fas fa-birthday-cake icon-box"></i>
+                    <span>Né le 15/09/2006</span>
+                </li>
+                <li class="flex items-center">
+                    <i class="fas fa-car icon-box"></i>
+                    <span>Permis B - Véhiculé</span>
+                </li>
+            </ul>
 
-        const THEMES = {
-            blue: { bg: 'from-cyan-500 to-blue-600', text: 'text-cyan-400', border: 'border-cyan-500', shadow: 'shadow-cyan-500/20' },
-            purple: { bg: 'from-fuchsia-500 to-purple-600', text: 'text-fuchsia-400', border: 'border-fuchsia-500', shadow: 'shadow-fuchsia-500/20' },
-            gold: { bg: 'from-amber-400 to-orange-600', text: 'text-amber-400', border: 'border-amber-500', shadow: 'shadow-amber-500/20' },
-            green: { bg: 'from-emerald-400 to-teal-600', text: 'text-emerald-400', border: 'border-emerald-500', shadow: 'shadow-emerald-500/20' }
-        };
+            <!-- Soft Skills / Profil -->
+            <h2 class="sidebar-title">Savoir-être</h2>
+            <ul class="space-y-2 text-sm text-gray-300">
+                <li class="flex items-center">
+                    <i class="fas fa-check text-orange-400 mr-2 text-xs"></i> Motivé et dynamique
+                </li>
+                <li class="flex items-center">
+                    <i class="fas fa-check text-orange-400 mr-2 text-xs"></i> Patient
+                </li>
+                <li class="flex items-center">
+                    <i class="fas fa-check text-orange-400 mr-2 text-xs"></i> Souci du détail
+                </li>
+                <li class="flex items-center">
+                    <i class="fas fa-check text-orange-400 mr-2 text-xs"></i> Capacité d'adaptation
+                </li>
+            </ul>
 
-        const SUBJECTS = [
-            { id: 'maths', name: 'Maths', color: '#f43f5e', icon: '📐', gradient: 'from-rose-500 to-red-600' },
-            { id: 'phys', name: 'Physique', color: '#3b82f6', icon: '⚡', gradient: 'from-blue-500 to-indigo-600' },
-            { id: 'info', name: 'Info', color: '#eab308', icon: '💻', gradient: 'from-yellow-400 to-orange-500' },
-            { id: 's2i', name: 'S2I', color: '#10b981', icon: '⚙️', gradient: 'from-emerald-400 to-teal-500' },
-        ];
+            <!-- Langues -->
+            <h2 class="sidebar-title">Langues</h2>
+            <ul class="space-y-3 text-sm text-gray-300">
+                <li class="flex justify-between items-center border-b border-slate-700 pb-2">
+                    <span class="font-semibold text-white">Français</span>
+                    <span class="text-orange-300 text-xs font-bold uppercase tracking-wider bg-slate-800 px-2 py-1 rounded">Maternelle</span>
+                </li>
+                <li class="flex justify-between items-center border-b border-slate-700 pb-2">
+                    <span class="font-semibold text-white">Anglais</span>
+                    <span class="text-orange-300 text-xs font-bold uppercase tracking-wider bg-slate-800 px-2 py-1 rounded">A1+</span>
+                </li>
+                <li class="flex justify-between items-center pb-1">
+                    <span class="font-semibold text-white">Espagnol</span>
+                    <span class="text-orange-300 text-xs font-bold uppercase tracking-wider bg-slate-800 px-2 py-1 rounded">B1</span>
+                </li>
+            </ul>
 
-        // --- ICONS ---
-        const Icon = ({ path, className }) => (
-            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                {path}
-            </svg>
-        );
+            <!-- Centres d'intérêt -->
+            <h2 class="sidebar-title">Centres d'intérêt</h2>
+            <div class="flex flex-wrap gap-2 text-sm">
+                <span class="px-3 py-1 bg-slate-700 text-gray-300 rounded-full">Domotique</span>
+                <span class="px-3 py-1 bg-slate-700 text-gray-300 rounded-full">Voyages</span>
+                <span class="px-3 py-1 bg-slate-700 text-gray-300 rounded-full">Sport (Tennis)</span>
+            </div>
+        </aside>
 
-        const ICONS = {
-            plus: <path d="M12 5v14M5 12h14"/>,
-            x: <path d="M18 6L6 18M6 6l12 12"/>,
-            chart: <path d="M12 20V10M18 20V4M6 20v-4"/>,
-            user: <g><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></g>,
-            check: <path d="M20 6L9 17l-5-5"/>,
-            lock: <g><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></g>,
-            gift: <g><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></g>,
-            logOut: <g><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></g>,
-            play: <polygon points="5 3 19 12 5 21 5 3"/>,
-            flame: <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.1.2-2.2.6-3.3a1 1 0 0 1 1.9.8z"/>,
-            hdd: <g><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></g>,
-            download: <g><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></g>,
-            upload: <g><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></g>
-        };
+        <!-- COLONNE DROITE (Claire) -->
+        <main class="main-content">
+            
+            <!-- En-tête -->
+            <header class="mb-8">
+                <h1 class="text-4xl font-bold text-slate-800 tracking-tight">THÉOTIME <span class="text-orange-600">CAMET</span></h1>
+                <h2 class="text-xl text-slate-500 font-medium mt-2">Étudiant en CPGE TSI</h2>
+                <p class="text-orange-600 font-bold mt-1 uppercase tracking-wide text-sm">À la recherche d'une alternance en école d'ingénieur</p>
+            </header>
 
-        // --- AUTH COMPONENT (LOCAL) ---
-        const AuthView = ({ onLogin }) => {
-            const [isRegister, setIsRegister] = useState(false);
-            const [formData, setFormData] = useState({ username: '', password: '' });
-            const [error, setError] = useState('');
+            <!-- Présentation -->
+            <section class="mb-8 text-gray-700 leading-relaxed text-sm text-justify">
+                <p>
+                    Actuellement en CPGE TSI, je recherche une alternance pour pouvoir poursuivre mes études au sein d'une école d'ingénieur. Je souhaite rejoindre une structure où je pourrai développer mes compétences techniques et professionnelles tout en contribuant activement à des projets concrets et stimulants.
+                </p>
+            </section>
 
-            const handleSubmit = () => {
-                setError('');
-                if(!formData.username || !formData.password) return setError("Veuillez tout remplir.");
+            <!-- Expériences Professionnelles -->
+            <section class="mb-8">
+                <h3 class="section-title"><i class="fas fa-briefcase mr-2"></i>Expériences Professionnelles</h3>
                 
-                const userKey = DB_PREFIX + formData.username.toLowerCase();
-                const storedUserStr = localStorage.getItem(userKey);
-
-                if (isRegister) {
-                    if (storedUserStr) {
-                        setError("Ce pseudo existe déjà sur cet ordinateur.");
-                    } else {
-                        // Création
-                        const newUser = {
-                            password: formData.password,
-                            data: {
-                                profile: { name: formData.username, xp: 0, avatar: "👤", theme: "blue" },
-                                courses: []
-                            }
-                        };
-                        localStorage.setItem(userKey, JSON.stringify(newUser));
-                        onLogin(userKey, newUser.data);
-                    }
-                } else {
-                    // Connexion
-                    if (storedUserStr) {
-                        const storedUser = JSON.parse(storedUserStr);
-                        if (storedUser.password === formData.password) {
-                            onLogin(userKey, storedUser.data);
-                        } else {
-                            setError("Mot de passe incorrect.");
-                        }
-                    } else {
-                        setError("Utilisateur introuvable sur cet ordinateur.");
-                    }
-                }
-            };
-
-            return (
-                <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-[#020617]">
-                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-blue-600/10 rounded-full blur-[120px] animate-float"></div>
-                        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-purple-600/10 rounded-full blur-[120px] animate-float" style={{animationDelay: '3s'}}></div>
+                <div class="ml-2 mt-4">
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-bold text-slate-800">Services National Universel (SNU)</h4>
+                            <span class="text-xs font-bold text-orange-700 bg-orange-100 px-2 py-1 rounded">Juin 2022</span>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-2">
+                            Découverte du monde militaire, apprentissage de la cohésion d'équipe et de l'engagement citoyen.
+                        </p>
                     </div>
 
-                    <div className="glass w-full max-w-md p-10 rounded-3xl animate-fade-in relative z-10 border border-slate-700/50">
-                        <div className="text-center mb-10">
-                            <div className="w-20 h-20 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-2xl mx-auto flex items-center justify-center mb-6 shadow-2xl shadow-cyan-500/20 rotate-3 hover:rotate-6 transition-transform duration-500">
-                                <span className="text-4xl text-white">🧠</span>
-                            </div>
-                            <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 mb-2">NeuroFlow</h1>
-                            <p className="text-slate-400 font-medium flex items-center justify-center gap-2">
-                                <Icon path={ICONS.hdd} className="w-4 h-4"/> Mode Hors Ligne
-                            </p>
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-bold text-slate-800">Stage d'observation</h4>
+                            <span class="text-xs font-bold text-orange-700 bg-orange-100 px-2 py-1 rounded">Fév. 2021</span>
                         </div>
-
-                        <div className="space-y-5">
-                            <div className="group">
-                                <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2 ml-1">Pseudo</label>
-                                <input 
-                                    type="text" 
-                                    className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-5 py-4 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all duration-300 group-hover:border-slate-600"
-                                    value={formData.username}
-                                    onChange={e => setFormData({...formData, username: e.target.value})}
-                                    placeholder="Identifiant local"
-                                />
-                            </div>
-                            <div className="group">
-                                <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2 ml-1">Mot de passe</label>
-                                <input 
-                                    type="password" 
-                                    className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-5 py-4 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all duration-300 group-hover:border-slate-600"
-                                    value={formData.password}
-                                    onChange={e => setFormData({...formData, password: e.target.value})}
-                                    placeholder="••••••••"
-                                />
-                            </div>
-
-                            {error && <div className="text-rose-400 text-sm text-center bg-rose-500/10 py-3 rounded-xl border border-rose-500/20 animate-pulse">{error}</div>}
-
-                            <button 
-                                onClick={handleSubmit} 
-                                className={`w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-cyan-500/20 transition-all duration-300 transform hover:scale-[1.02] active:scale-95 mt-4 flex items-center justify-center gap-2`}
-                            >
-                                {isRegister ? "Créer un compte local" : "Se connecter"}
-                            </button>
-
-                            <div className="text-center pt-6">
-                                <button onClick={() => { setIsRegister(!isRegister); setError(''); }} className="text-slate-500 hover:text-cyan-400 text-sm font-medium transition-colors">
-                                    {isRegister ? "Déjà un compte ? Connexion" : "Nouveau ? Créer un compte"}
-                                </button>
-                            </div>
-                        </div>
+                        <h5 class="text-sm text-slate-500 italic">Skydome (Entreprise de désenfumage) - Sons-et-Ronchères</h5>
+                        <ul class="list-disc list-inside text-sm text-gray-600 mt-2 space-y-1">
+                            <li>Découverte de la vie professionnelle et du fonctionnement d'une entreprise industrielle.</li>
+                            <li>Observation active d'une dizaine de corps de métier différents.</li>
+                        </ul>
                     </div>
                 </div>
-            );
-        };
+            </section>
 
-        // --- MAIN APP ---
-        function NeuroFlowApp() {
-            const [sessionUserKey, setSessionUserKey] = useState(null);
-            
-            // App Data
-            const [userProfile, setUserProfile] = useState(null);
-            const [courses, setCourses] = useState([]);
-            
-            // UI State
-            const [view, setView] = useState('home');
-            const [selectedCourse, setSelectedCourse] = useState(null);
-            const [newCourse, setNewCourse] = useState({ title: '', subject: 'maths' });
-            
-            // Pour l'import de fichier
-            const fileInputRef = useRef(null);
-
-            // 1. Sauvegarde automatique dans localStorage à chaque changement
-            useEffect(() => {
-                if (sessionUserKey && userProfile) {
-                    const storedData = localStorage.getItem(sessionUserKey);
-                    if (storedData) {
-                        const parsed = JSON.parse(storedData);
-                        // On met à jour les données dans l'objet complet (en gardant le mot de passe)
-                        parsed.data = {
-                            profile: userProfile,
-                            courses: courses
-                        };
-                        localStorage.setItem(sessionUserKey, JSON.stringify(parsed));
-                    }
-                }
-            }, [userProfile, courses, sessionUserKey]);
-
-            const handleLogin = (userKey, initialData) => {
-                setSessionUserKey(userKey);
-                setUserProfile(initialData.profile);
-                setCourses(initialData.courses);
-                setView('home');
-                confetti({ particleCount: 50, spread: 70, origin: { y: 0.8 } });
-            };
-
-            const handleLogout = () => {
-                setSessionUserKey(null);
-                setUserProfile(null);
-                setCourses([]);
-                setView('login');
-            };
-
-            // Fonction de sauvegarde locale (juste pour update le state, le useEffect fait le reste)
-            const updateLocalState = (newProfile, newCourses) => {
-                if (newProfile) setUserProfile(newProfile);
-                if (newCourses) setCourses(newCourses);
-            };
-
-            const handleExportData = () => {
-                const dataStr = JSON.stringify({ profile: userProfile, courses: courses }, null, 2);
-                const blob = new Blob([dataStr], { type: "application/json" });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.download = `neuroflow_${userProfile.name}_${new Date().toISOString().slice(0,10)}.json`;
-                link.href = url;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                confetti({ particleCount: 50, spread: 50, origin: { y: 0.6 } });
-            };
-
-            const handleImportData = (event) => {
-                const file = event.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        const json = JSON.parse(e.target.result);
-                        if (json.profile && json.courses) {
-                            updateLocalState(json.profile, json.courses);
-                            alert("Importation réussie !");
-                            confetti({ particleCount: 150, spread: 100, origin: { y: 0.5 } });
-                        } else {
-                            alert("Format de fichier invalide.");
-                        }
-                    } catch (err) {
-                        alert("Erreur de lecture du fichier.");
-                    }
-                };
-                reader.readAsText(file);
-            };
-
-            if (!sessionUserKey || !userProfile) return <AuthView onLogin={handleLogin} />;
-
-            // --- THEME & LOGIC ---
-            const activeTheme = THEMES[userProfile.theme] || THEMES.blue;
-            const currentLevel = LEVELS.slice().reverse().find(l => userProfile.xp >= l.xp) || LEVELS[0];
-            const nextLevel = LEVELS.find(l => l.lvl === currentLevel.lvl + 1);
-            const progress = nextLevel ? ((userProfile.xp - currentLevel.xp) / (nextLevel.xp - currentLevel.xp)) * 100 : 100;
-
-            const handleCreateCourse = () => {
-                if (!newCourse.title) return;
-                const course = {
-                    id: Date.now(),
-                    title: newCourse.title,
-                    subject: newCourse.subject,
-                    created: new Date().toISOString(),
-                    history: []
-                };
-                const updatedCourses = [...courses, course];
-                updateLocalState(null, updatedCourses);
-                setNewCourse({ title: '', subject: 'maths' });
-                setView('home');
-                confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 }, colors: ['#22d3ee', '#e879f9'] });
-            };
-
-            const getReviewsToday = (course) => {
-                const todayStr = new Date().toDateString();
-                return course.history.filter(date => new Date(date).toDateString() === todayStr).length;
-            };
-
-            const markAsReviewed = (course) => {
-                if (getReviewsToday(course) >= MAX_DAILY_REVIEWS) return;
-
-                const now = new Date().toISOString();
-                const updatedCourses = courses.map(c => c.id === course.id ? { ...c, history: [...c.history, now] } : c);
-                setCourses(updatedCourses);
-
-                const xpGain = 100; 
-                const newXp = userProfile.xp + xpGain;
-                const updatedProfile = { ...userProfile, xp: newXp };
-
-                const newLvlObj = LEVELS.slice().reverse().find(l => newXp >= l.xp);
-                if (newLvlObj.lvl > currentLevel.lvl) {
-                    confetti({ particleCount: 200, spread: 100, origin: { y: 0.5 } });
-                    alert(`UPGRADE ! Niveau ${newLvlObj.lvl} atteint.`);
-                } else {
-                    confetti({ particleCount: 30, spread: 40, origin: { y: 0.7 }, colors: ['#ffffff', activeTheme.bg.split('-')[1]] });
-                }
-
-                updateLocalState(updatedProfile, updatedCourses);
-            };
-
-            const getRetentionCurves = (course) => {
-                const data = [];
-                const now = new Date();
-                const reviewCount = course.history.length;
-                const hasReviews = reviewCount > 0;
-                const stability = hasReviews ? 2 * Math.pow(2.2, reviewCount - 1) : 1; 
-                const lastEventDate = hasReviews ? new Date(course.history[reviewCount - 1]) : new Date(course.created);
-
-                for (let i = 0; i <= 30; i++) {
-                    const projectedDate = new Date();
-                    projectedDate.setDate(now.getDate() + i);
-                    
-                    const daysSinceLastEvent = (projectedDate - lastEventDate) / (1000 * 60 * 60 * 24);
-                    let realRetention = 100 * Math.exp(-daysSinceLastEvent / stability);
-                    if (daysSinceLastEvent < 0) realRetention = 100;
-
-                    const daysSinceCreation = (projectedDate - new Date(course.created)) / (1000 * 60 * 60 * 24);
-                    const theoreticalRetention = 100 * Math.exp(-daysSinceCreation / 1.5); 
-
-                    data.push({
-                        day: `J+${i}`,
-                        real: Math.round(Math.max(0, Math.min(100, realRetention))),
-                        theo: Math.round(Math.max(0, Math.min(100, theoreticalRetention)))
-                    });
-                }
-                return data;
-            };
-
-            const CustomTooltip = ({ active, payload, label }) => {
-                if (active && payload && payload.length) {
-                    const realData = payload.find(p => p.dataKey === 'real');
-                    const theoData = payload.find(p => p.dataKey === 'theo');
-                    return (
-                        <div className="bg-slate-900/90 border border-slate-600 p-4 rounded-xl shadow-2xl backdrop-blur-md">
-                            <p className="font-bold text-white mb-2 border-b border-slate-700 pb-1">{label}</p>
-                            {realData && (
-                                <div className="flex items-center gap-2 mb-1">
-                                    <div className="w-2 h-2 rounded-full bg-cyan-400"></div>
-                                    <span className="text-slate-300 text-xs">Actuel :</span>
-                                    <span className="text-cyan-400 font-mono font-bold">{realData.value}%</span>
-                                </div>
-                            )}
-                            {theoData && (
-                                <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-rose-500"></div>
-                                    <span className="text-slate-300 text-xs">Risque :</span>
-                                    <span className="text-rose-400 font-mono font-bold">{theoData.value}%</span>
-                                </div>
-                            )}
+            <!-- Formation -->
+            <section>
+                <h3 class="section-title"><i class="fas fa-graduation-cap mr-2"></i>Formation</h3>
+                
+                <div class="ml-2 mt-4">
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-bold text-slate-800">CPGE TSI</h4>
+                            <span class="text-xs font-bold text-orange-700 bg-orange-100 px-2 py-1 rounded">2024 - 2026</span>
                         </div>
-                    );
-                }
-                return null;
-            };
-
-            const renderHome = () => (
-                <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-10 animate-fade-in pb-24">
-                    {/* TOP BAR / STATS */}
-                    <div className="glass rounded-3xl p-6 md:p-8 relative overflow-hidden flex flex-col md:flex-row items-center gap-8 border-t border-white/10">
-                        <div className={`absolute top-0 right-0 w-96 h-96 bg-gradient-to-br ${activeTheme.bg} opacity-20 rounded-full blur-[100px] pointer-events-none translate-x-1/3 -translate-y-1/3`}></div>
-                        
-                        {/* Avatar */}
-                        <div className="relative group">
-                            <div className={`absolute inset-0 bg-gradient-to-r ${activeTheme.bg} rounded-full blur opacity-50 group-hover:opacity-100 transition-opacity duration-500`}></div>
-                            <div className="w-24 h-24 rounded-full bg-slate-900 flex items-center justify-center text-5xl relative z-10 border-4 border-slate-800 shadow-xl">
-                                {userProfile.avatar}
-                            </div>
-                            <div className={`absolute -bottom-2 left-1/2 transform -translate-x-1/2 px-3 py-1 bg-slate-900 rounded-full text-xs font-bold border border-slate-700 text-white whitespace-nowrap z-20`}>
-                                Niv. {currentLevel.lvl}
-                            </div>
-                        </div>
-                        
-                        {/* Info & XP Bar */}
-                        <div className="flex-1 w-full text-center md:text-left z-10">
-                            <div className="flex items-center justify-center md:justify-between mb-2">
-                                <div>
-                                    <h1 className="text-3xl font-black text-white tracking-tight">{userProfile.name}</h1>
-                                    <div className={`text-sm font-semibold uppercase tracking-widest ${activeTheme.text}`}>{currentLevel.title}</div>
-                                </div>
-                                <div className="hidden md:block text-right">
-                                    <div className="text-2xl font-mono font-bold text-white">{userProfile.xp} <span className="text-sm text-slate-500">XP</span></div>
-                                    <div className="text-xs text-slate-400">Prochain: {nextLevel ? nextLevel.reward.name : 'Max'}</div>
-                                </div>
-                            </div>
-                            
-                            {/* XP Progress */}
-                            <div className="relative h-6 bg-slate-900/80 rounded-full p-1 border border-slate-700 shadow-inner">
-                                <div className={`h-full rounded-full bg-gradient-to-r ${activeTheme.bg} transition-all duration-1000 relative overflow-hidden`} style={{ width: `${progress}%` }}>
-                                    <div className="absolute inset-0 bg-white/20 animate-[pulse_2s_infinite]"></div>
-                                </div>
-                            </div>
-                            <div className="md:hidden flex justify-between text-xs text-slate-500 mt-2 font-mono">
-                                <span>{userProfile.xp} XP</span>
-                                <span>Next: {nextLevel ? nextLevel.xp : 'MAX'}</span>
-                            </div>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex gap-4 z-10">
-                            <button onClick={() => setView('profile')} className="p-4 bg-slate-800 hover:bg-slate-700 rounded-2xl border border-slate-700 transition hover:scale-105 active:scale-95 group" title="Profil">
-                                <Icon path={ICONS.user} className="w-6 h-6 text-slate-400 group-hover:text-white transition-colors" />
-                            </button>
-                            <button onClick={() => setView('builder')} className={`px-6 py-4 rounded-2xl font-bold text-white bg-gradient-to-r ${activeTheme.bg} ${activeTheme.shadow} hover:shadow-lg hover:shadow-cyan-500/20 flex items-center gap-3 transition-all hover:scale-105 active:scale-95`}>
-                                <Icon path={ICONS.plus} className="w-6 h-6" /> <span className="hidden md:inline">Nouveau Cours</span>
-                            </button>
-                            <button onClick={handleLogout} className="p-4 bg-slate-800 hover:bg-rose-500/10 rounded-2xl border border-slate-700 hover:border-rose-500/50 transition group" title="Déconnexion">
-                                <Icon path={ICONS.logOut} className="w-6 h-6 text-slate-400 group-hover:text-rose-400" />
-                            </button>
-                        </div>
+                        <h5 class="text-sm text-slate-500 italic">Lycée Louis-Thuillier, Amiens</h5>
+                        <p class="text-sm text-gray-600 mt-1">
+                            Formation scientifique et technologique exigeante (En cours).
+                        </p>
                     </div>
 
-                    {/* COURSES GRID */}
-                    <div>
-                        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
-                            <Icon path={ICONS.flame} className="w-6 h-6 text-orange-500" /> Vos Cours Actifs
-                        </h2>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {courses.length === 0 ? (
-                                <div className="col-span-full py-24 text-center glass rounded-3xl border-2 border-dashed border-slate-700 flex flex-col items-center justify-center gap-4">
-                                    <div className="text-6xl opacity-50 mb-2">🚀</div>
-                                    <h3 className="text-xl font-bold text-white">Votre tableau de bord est vide</h3>
-                                    <p className="text-slate-400 max-w-sm mx-auto">Commencez votre voyage d'apprentissage en créant votre premier cours.</p>
-                                    <button onClick={() => setView('builder')} className={`mt-4 px-8 py-3 rounded-xl font-bold text-white bg-gradient-to-r ${activeTheme.bg}`}>Décoller maintenant</button>
-                                </div>
-                            ) : courses.map(course => {
-                                const sub = SUBJECTS.find(s => s.id === course.subject);
-                                const isSelected = selectedCourse && selectedCourse.id === course.id;
-                                const reviewsToday = getReviewsToday(course);
-                                const isLimitReached = reviewsToday >= MAX_DAILY_REVIEWS;
-                                const lastRevDate = course.history.length > 0 ? new Date(course.history[course.history.length - 1]) : null;
-
-                                return (
-                                    <div key={course.id} className={`glass-card rounded-3xl p-6 relative group overflow-hidden ${isSelected ? 'ring-2 ring-cyan-500/50' : ''}`}>
-                                        <div className="flex justify-between items-start mb-6">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${sub.gradient} flex items-center justify-center text-2xl shadow-lg`}>
-                                                    {sub.icon}
-                                                </div>
-                                                <div>
-                                                    <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-0.5">{sub.name}</div>
-                                                    <h3 className="text-lg font-bold text-white leading-tight truncate max-w-[150px]">{course.title}</h3>
-                                                </div>
-                                            </div>
-                                            <button onClick={() => setSelectedCourse(isSelected ? null : course)} className={`p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 transition ${isSelected ? 'text-cyan-400 bg-cyan-900/20' : ''}`}>
-                                                <Icon path={ICONS.chart} className="w-5 h-5" />
-                                            </button>
-                                        </div>
-
-                                        {isSelected && (
-                                            <div className="h-40 -mx-2 mb-6 animate-fade-in relative bg-slate-900/50 rounded-xl border border-slate-700/50 overflow-hidden">
-                                                <ResponsiveContainer width="100%" height="100%">
-                                                    <AreaChart data={getRetentionCurves(course)}>
-                                                        <defs>
-                                                            <linearGradient id="colorReal" x1="0" y1="0" x2="0" y2="1">
-                                                                <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.3}/>
-                                                                <stop offset="95%" stopColor="#22d3ee" stopOpacity={0}/>
-                                                            </linearGradient>
-                                                        </defs>
-                                                        <Tooltip content={<CustomTooltip />} cursor={{stroke: 'rgba(255,255,255,0.1)', strokeWidth: 2}} />
-                                                        <Area type="monotone" dataKey="real" stroke="#22d3ee" strokeWidth={3} fillOpacity={1} fill="url(#colorReal)" />
-                                                        <Line type="monotone" dataKey="theo" stroke="#ef4444" strokeWidth={2} dot={false} strokeDasharray="4 4" opacity={0.5} />
-                                                    </AreaChart>
-                                                </ResponsiveContainer>
-                                            </div>
-                                        )}
-
-                                        <div className="mt-auto">
-                                            {isLimitReached ? (
-                                                <button disabled className="w-full py-4 rounded-xl bg-slate-800/50 border border-slate-700 text-slate-500 font-bold flex items-center justify-center gap-2 cursor-not-allowed">
-                                                    <Icon path={ICONS.check} className="w-5 h-5" /> Quota atteint
-                                                </button>
-                                            ) : (
-                                                <button 
-                                                    onClick={() => markAsReviewed(course)}
-                                                    className={`w-full py-4 rounded-xl font-bold text-white bg-gradient-to-r ${activeTheme.bg} shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 group-hover:shadow-cyan-500/40`}
-                                                >
-                                                    <Icon path={ICONS.play} className="w-5 h-5 fill-current" /> <span className="tracking-wide">RÉVISER</span>
-                                                </button>
-                                            )}
-                                            
-                                            <div className="mt-3 flex justify-between items-center text-xs font-medium text-slate-500">
-                                                <span className="flex items-center gap-1">
-                                                    <span className={`w-2 h-2 rounded-full ${isLimitReached ? 'bg-green-500' : 'bg-orange-500 animate-pulse'}`}></span>
-                                                    {isLimitReached ? 'Fait' : 'En attente'}
-                                                </span>
-                                                <span>{lastRevDate ? `Dernière: ${lastRevDate.toLocaleDateString()}` : 'Jamais révisé'}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-bold text-slate-800">Baccalauréat STI2D</h4>
+                            <span class="text-xs font-bold text-orange-700 bg-orange-100 px-2 py-1 rounded">2021 - 2024</span>
                         </div>
+                        <h5 class="text-sm text-slate-500 italic">Lycée Jean-Racine, Montdidier</h5>
+                        <p class="text-sm text-gray-600 mt-1 text-orange-600 font-semibold">
+                            Obtenu avec Mention Assez Bien
+                        </p>
+                    </div>
+
+                    <div class="timeline-item border-l-transparent pb-0 mb-0"> <!-- border-transparent pour enlever la ligne sur le dernier -->
+                        <div class="timeline-dot"></div>
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-bold text-slate-800">Diplôme National du Brevet</h4>
+                            <span class="text-xs font-bold text-orange-700 bg-orange-100 px-2 py-1 rounded">2018 - 2021</span>
+                        </div>
+                        <h5 class="text-sm text-slate-500 italic">Collège Saint-Vincent, Montdidier</h5>
                     </div>
                 </div>
-            );
+            </section>
 
-            const renderBuilder = () => (
-                <div className="fixed inset-0 bg-[#020617]/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                    <div className="glass w-full max-w-lg rounded-3xl p-8 animate-fade-in border border-slate-700 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 to-purple-600"></div>
-                        <div className="flex justify-between items-center mb-8">
-                            <h2 className="text-2xl font-black text-white tracking-tight">Nouveau Module</h2>
-                            <button onClick={() => setView('home')} className="p-2 hover:bg-slate-800 rounded-full transition text-slate-400 hover:text-white"><Icon path={ICONS.x} className="w-6 h-6"/></button>
-                        </div>
-                        <div className="space-y-6">
-                            <div>
-                                <label className="block text-slate-400 text-xs font-bold uppercase mb-2 ml-1">Titre du cours</label>
-                                <input type="text" className="w-full bg-slate-900 border border-slate-700 rounded-xl px-5 py-4 text-white text-lg font-medium focus:border-cyan-500 outline-none transition-all placeholder:text-slate-600" placeholder="Ex: Mécanique Quantique" value={newCourse.title} onChange={e => setNewCourse({...newCourse, title: e.target.value})} autoFocus />
-                            </div>
-                            <div>
-                                <label className="block text-slate-400 text-xs font-bold uppercase mb-2 ml-1">Domaine</label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    {SUBJECTS.map(s => (
-                                        <button key={s.id} onClick={() => setNewCourse({...newCourse, subject: s.id})} className={`p-4 rounded-xl border-2 flex items-center gap-3 transition-all ${newCourse.subject === s.id ? 'border-white bg-slate-800' : 'border-transparent bg-slate-900 opacity-60 hover:opacity-100'}`}>
-                                            <span className="text-2xl">{s.icon}</span><span className="font-bold text-white">{s.name}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            <button onClick={handleCreateCourse} className={`w-full py-4 rounded-xl font-bold text-white bg-gradient-to-r ${activeTheme.bg} shadow-xl hover:scale-[1.02] active:scale-95 transition-all mt-4`}>Initialiser le Cours</button>
-                        </div>
-                    </div>
-                </div>
-            );
+        </main>
+    </div>
 
-            const renderProfile = () => (
-                <div className="fixed inset-0 bg-[#020617]/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                    <div className="glass w-full max-w-3xl rounded-3xl border border-slate-700 shadow-2xl flex flex-col max-h-[85vh] animate-fade-in overflow-hidden">
-                        <div className="p-6 border-b border-slate-700/50 flex justify-between items-center bg-slate-900/50">
-                            <h2 className="text-xl font-black text-white uppercase tracking-widest flex items-center gap-3"><span className="text-3xl">🛡️</span> Armurerie</h2>
-                            <button onClick={() => setView('home')} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition"><Icon path={ICONS.x} className="w-6 h-6"/></button>
-                        </div>
-                        <div className="p-8 overflow-y-auto custom-scrollbar space-y-10 bg-slate-900/30">
-                            <section>
-                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Sauvegarde</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <button onClick={handleExportData} className="p-5 rounded-2xl border-2 border-slate-700 bg-slate-800/50 hover:bg-slate-800 hover:border-cyan-500 transition-all group flex items-center justify-between">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-full bg-cyan-900/30 flex items-center justify-center text-cyan-400"><Icon path={ICONS.download} className="w-6 h-6"/></div>
-                                            <div className="text-left"><div className="font-bold text-white">Exporter</div><div className="text-xs text-slate-400">Télécharger backup (.json)</div></div>
-                                        </div>
-                                    </button>
-                                    <label className="p-5 rounded-2xl border-2 border-slate-700 bg-slate-800/50 hover:bg-slate-800 hover:border-purple-500 transition-all group flex items-center justify-between cursor-pointer">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-full bg-purple-900/30 flex items-center justify-center text-purple-400"><Icon path={ICONS.upload} className="w-6 h-6"/></div>
-                                            <div className="text-left"><div className="font-bold text-white">Importer</div><div className="text-xs text-slate-400">Charger backup</div></div>
-                                        </div>
-                                        <input type="file" ref={fileInputRef} onChange={handleImportData} accept=".json" className="hidden" />
-                                    </label>
-                                </div>
-                            </section>
-                            <section>
-                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Identité Visuelle</h3>
-                                <div className="grid grid-cols-4 sm:grid-cols-6 gap-4">
-                                    {['👨‍🎓', '👩‍🎓', '🧠', '🦁', '🚀', '👑'].map((emoji, i) => {
-                                        const locked = i > 1 && currentLevel.lvl < (i + 1); 
-                                        return (
-                                            <button key={i} disabled={locked} onClick={() => updateLocalState({...userProfile, avatar: emoji}, null)} className={`aspect-square rounded-2xl flex items-center justify-center text-4xl border-2 transition-all relative group ${userProfile.avatar === emoji ? `border-cyan-500 bg-cyan-900/20 shadow-[0_0_20px_rgba(34,211,238,0.3)]` : 'border-slate-700 bg-slate-800'} ${locked ? 'opacity-40 grayscale cursor-not-allowed' : 'hover:-translate-y-1 hover:border-slate-500'}`}>
-                                                {locked && <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl"><Icon path={ICONS.lock} className="w-6 h-6 text-white"/></div>}
-                                                {emoji}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </section>
-                            <section>
-                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Interface Système</h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    {Object.entries(THEMES).map(([key, t]) => {
-                                        const levelObj = LEVELS.find(l => l.reward.type === 'theme' && l.reward.id === key);
-                                        const requiredLvl = levelObj ? levelObj.lvl : 1;
-                                        const locked = currentLevel.lvl < requiredLvl;
-                                        return (
-                                            <button key={key} disabled={locked} onClick={() => updateLocalState({...userProfile, theme: key}, null)} className={`p-5 rounded-2xl border-2 flex items-center justify-between transition-all group ${userProfile.theme === key ? `border-${t.border.split('-')[1]}-500 bg-slate-800 shadow-lg` : 'border-slate-700 bg-slate-900'} ${locked ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-500'}`}>
-                                                <div className="flex items-center gap-4">
-                                                    <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${t.bg} shadow-inner`}></div>
-                                                    <div className="text-left"><div className="font-bold text-white text-lg capitalize">{key}</div><div className="text-xs font-mono text-slate-400">{locked ? `REQ: LVL ${requiredLvl}` : 'UNLOCKED'}</div></div>
-                                                </div>
-                                                {locked ? <Icon path={ICONS.lock} className="w-6 h-6 text-slate-600"/> : userProfile.theme === key && <div className="w-4 h-4 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]"></div>}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </section>
-                        </div>
-                    </div>
-                </div>
-            );
-
-            return (
-                <div className="min-h-screen font-sans text-slate-200">
-                    {view === 'home' && renderHome()}
-                    {view === 'builder' && renderBuilder()}
-                    {view === 'profile' && renderProfile()}
-                </div>
-            );
-        }
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<NeuroFlowApp />);
-    </script>
 </body>
 </html>
