@@ -11,7 +11,7 @@
         
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
+            background-color: #e5e7eb;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
@@ -44,8 +44,9 @@
 
         .sidebar {
             width: 32%;
-            background-color: #0f172a; /* Noir/Bleu très profond */
-            color: white;
+            background-color: #f8fafc; /* Gris très clair / blanc cassé */
+            border-right: 1px solid #e2e8f0;
+            color: #334155;
             padding: 2.5rem 2rem;
         }
 
@@ -56,23 +57,23 @@
         }
 
         .section-title {
-            color: #ea580c; /* Orange vibrant */
+            color: #2563eb; /* Bleu roi vibrant */
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             margin-bottom: 1rem;
-            border-bottom: 2px solid #ffedd5;
+            border-bottom: 2px solid #dbeafe;
             padding-bottom: 0.5rem;
         }
 
         .sidebar-title {
-            color: #fdba74; /* Orange clair */
+            color: #1d4ed8; /* Bleu profond */
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             margin-bottom: 1rem;
             margin-top: 2rem;
-            border-bottom: 1px solid #334155;
+            border-bottom: 1px solid #cbd5e1;
             padding-bottom: 0.5rem;
         }
 
@@ -80,7 +81,7 @@
             width: 24px;
             text-align: center;
             margin-right: 0.75rem;
-            color: #fdba74;
+            color: #3b82f6; /* Bleu clair pour les icônes */
         }
         
         .timeline-dot {
@@ -90,8 +91,9 @@
             width: 12px;
             height: 12px;
             border-radius: 50%;
-            background-color: #ea580c;
+            background-color: #2563eb;
             border: 2px solid white;
+            box-shadow: 0 0 0 1px #bfdbfe;
         }
         
         .timeline-item {
@@ -115,11 +117,11 @@
     <!-- Conteneur principal du CV -->
     <div class="a4-container">
         
-        <!-- COLONNE GAUCHE (Sombre) -->
+        <!-- COLONNE GAUCHE (Claire) -->
         <aside class="sidebar">
             <!-- Photo de profil (Lien d'image à remplacer si vous le souhaitez) -->
             <div class="flex justify-center mb-6">
-                <div class="w-32 h-32 rounded-full overflow-hidden border-4 border-orange-500 bg-gray-300 shadow-[0_0_15px_rgba(234,88,12,0.4)]">
+                <div class="w-32 h-32 rounded-full overflow-hidden border-4 border-white bg-gray-200 shadow-md">
                     <!-- Pour mettre votre vraie photo, remplacez le 'src' par le chemin de votre image -->
                     <img src="https://via.placeholder.com/150/cbd5e1/475569?text=Photo" alt="Théotime Camet" class="w-full h-full object-cover">
                 </div>
@@ -127,84 +129,84 @@
 
             <!-- Coordonnées -->
             <h2 class="sidebar-title mt-0">Coordonnées</h2>
-            <ul class="space-y-3 text-sm text-gray-300">
+            <ul class="space-y-3 text-sm text-slate-600">
                 <li class="flex items-center">
                     <i class="fas fa-phone icon-box"></i>
-                    <span>06 41 49 57 22</span>
+                    <span class="font-medium">06 41 49 57 22</span>
                 </li>
                 <li class="flex items-center">
                     <i class="fas fa-envelope icon-box"></i>
-                    <span class="break-all">theotimecamet2006<br>@gmail.com</span>
+                    <span class="break-all font-medium">theotimecamet2006<br>@gmail.com</span>
                 </li>
                 <li class="flex items-start">
                     <i class="fas fa-map-marker-alt icon-box mt-1"></i>
-                    <span>9 rue des Tanneries<br>80500 Montdidier</span>
+                    <span class="font-medium">9 rue des Tanneries<br>80500 Montdidier</span>
                 </li>
                 <li class="flex items-center">
                     <i class="fas fa-birthday-cake icon-box"></i>
-                    <span>Né le 15/09/2006</span>
+                    <span class="font-medium">Né le 15/09/2006</span>
                 </li>
                 <li class="flex items-center">
                     <i class="fas fa-car icon-box"></i>
-                    <span>Permis B - Véhiculé</span>
+                    <span class="font-medium">Permis B - Véhiculé</span>
                 </li>
             </ul>
 
             <!-- Soft Skills / Profil -->
             <h2 class="sidebar-title">Savoir-être</h2>
-            <ul class="space-y-2 text-sm text-gray-300">
+            <ul class="space-y-2 text-sm text-slate-600 font-medium">
                 <li class="flex items-center">
-                    <i class="fas fa-check text-orange-400 mr-2 text-xs"></i> Motivé et dynamique
+                    <i class="fas fa-check text-blue-500 mr-2 text-xs"></i> Motivé et dynamique
                 </li>
                 <li class="flex items-center">
-                    <i class="fas fa-check text-orange-400 mr-2 text-xs"></i> Patient
+                    <i class="fas fa-check text-blue-500 mr-2 text-xs"></i> Patient
                 </li>
                 <li class="flex items-center">
-                    <i class="fas fa-check text-orange-400 mr-2 text-xs"></i> Souci du détail
+                    <i class="fas fa-check text-blue-500 mr-2 text-xs"></i> Souci du détail
                 </li>
                 <li class="flex items-center">
-                    <i class="fas fa-check text-orange-400 mr-2 text-xs"></i> Capacité d'adaptation
+                    <i class="fas fa-check text-blue-500 mr-2 text-xs"></i> Capacité d'adaptation
                 </li>
             </ul>
 
             <!-- Langues -->
             <h2 class="sidebar-title">Langues</h2>
-            <ul class="space-y-3 text-sm text-gray-300">
-                <li class="flex justify-between items-center border-b border-slate-700 pb-2">
-                    <span class="font-semibold text-white">Français</span>
-                    <span class="text-orange-300 text-xs font-bold uppercase tracking-wider bg-slate-800 px-2 py-1 rounded">Maternelle</span>
+            <ul class="space-y-3 text-sm text-slate-600">
+                <li class="flex justify-between items-center border-b border-slate-200 pb-2">
+                    <span class="font-semibold text-slate-800">Français</span>
+                    <span class="text-blue-700 text-xs font-bold uppercase tracking-wider bg-blue-100 px-2 py-1 rounded">Maternelle</span>
                 </li>
-                <li class="flex justify-between items-center border-b border-slate-700 pb-2">
-                    <span class="font-semibold text-white">Anglais</span>
-                    <span class="text-orange-300 text-xs font-bold uppercase tracking-wider bg-slate-800 px-2 py-1 rounded">A1+</span>
+                <li class="flex justify-between items-center border-b border-slate-200 pb-2">
+                    <span class="font-semibold text-slate-800">Anglais</span>
+                    <span class="text-blue-700 text-xs font-bold uppercase tracking-wider bg-blue-100 px-2 py-1 rounded">A1+</span>
                 </li>
                 <li class="flex justify-between items-center pb-1">
-                    <span class="font-semibold text-white">Espagnol</span>
-                    <span class="text-orange-300 text-xs font-bold uppercase tracking-wider bg-slate-800 px-2 py-1 rounded">B1</span>
+                    <span class="font-semibold text-slate-800">Espagnol</span>
+                    <span class="text-blue-700 text-xs font-bold uppercase tracking-wider bg-blue-100 px-2 py-1 rounded">B1</span>
                 </li>
             </ul>
 
             <!-- Centres d'intérêt -->
             <h2 class="sidebar-title">Centres d'intérêt</h2>
-            <div class="flex flex-wrap gap-2 text-sm">
-                <span class="px-3 py-1 bg-slate-700 text-gray-300 rounded-full">Domotique</span>
-                <span class="px-3 py-1 bg-slate-700 text-gray-300 rounded-full">Voyages</span>
-                <span class="px-3 py-1 bg-slate-700 text-gray-300 rounded-full">Sport (Tennis)</span>
+            <div class="flex flex-wrap gap-2 text-sm font-medium">
+                <span class="px-3 py-1 bg-white border border-slate-200 text-slate-600 rounded-full shadow-sm">Domotique</span>
+                <span class="px-3 py-1 bg-white border border-slate-200 text-slate-600 rounded-full shadow-sm">Voyages</span>
+                <span class="px-3 py-1 bg-white border border-slate-200 text-slate-600 rounded-full shadow-sm">Sport (Tennis)</span>
             </div>
         </aside>
 
-        <!-- COLONNE DROITE (Claire) -->
+        <!-- COLONNE DROITE (Blanche) -->
         <main class="main-content">
             
             <!-- En-tête -->
             <header class="mb-8">
-                <h1 class="text-4xl font-bold text-slate-800 tracking-tight">THÉOTIME <span class="text-orange-600">CAMET</span></h1>
+                <h1 class="text-4xl font-bold text-slate-800 tracking-tight">THÉOTIME <span class="text-blue-600">CAMET</span></h1>
                 <h2 class="text-xl text-slate-500 font-medium mt-2">Étudiant en CPGE TSI</h2>
-                <p class="text-orange-600 font-bold mt-1 uppercase tracking-wide text-sm">À la recherche d'une alternance en école d'ingénieur</p>
+                <p class="text-blue-600 font-bold mt-1 uppercase tracking-wide text-sm">À la recherche d'une alternance en école d'ingénieur</p>
             </header>
 
             <!-- Présentation -->
-            <section class="mb-8 text-gray-700 leading-relaxed text-sm text-justify">
+            <section class="mb-8 text-slate-600 leading-relaxed text-sm text-justify">
                 <p>
                     Actuellement en CPGE TSI, je recherche une alternance pour pouvoir poursuivre mes études au sein d'une école d'ingénieur. Je souhaite rejoindre une structure où je pourrai développer mes compétences techniques et professionnelles tout en contribuant activement à des projets concrets et stimulants.
                 </p>
@@ -219,9 +221,9 @@
                         <div class="timeline-dot"></div>
                         <div class="flex justify-between items-start">
                             <h4 class="font-bold text-slate-800">Services National Universel (SNU)</h4>
-                            <span class="text-xs font-bold text-orange-700 bg-orange-100 px-2 py-1 rounded">Juin 2022</span>
+                            <span class="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100">Juin 2022</span>
                         </div>
-                        <p class="text-sm text-gray-600 mt-2">
+                        <p class="text-sm text-slate-600 mt-2">
                             Découverte du monde militaire, apprentissage de la cohésion d'équipe et de l'engagement citoyen.
                         </p>
                     </div>
@@ -230,10 +232,10 @@
                         <div class="timeline-dot"></div>
                         <div class="flex justify-between items-start">
                             <h4 class="font-bold text-slate-800">Stage d'observation</h4>
-                            <span class="text-xs font-bold text-orange-700 bg-orange-100 px-2 py-1 rounded">Fév. 2021</span>
+                            <span class="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100">Fév. 2021</span>
                         </div>
-                        <h5 class="text-sm text-slate-500 italic">Skydome (Entreprise de désenfumage) - Sons-et-Ronchères</h5>
-                        <ul class="list-disc list-inside text-sm text-gray-600 mt-2 space-y-1">
+                        <h5 class="text-sm text-slate-500 italic mt-1">Skydome (Entreprise de désenfumage) - Sons-et-Ronchères</h5>
+                        <ul class="list-disc list-inside text-sm text-slate-600 mt-2 space-y-1">
                             <li>Découverte de la vie professionnelle et du fonctionnement d'une entreprise industrielle.</li>
                             <li>Observation active d'une dizaine de corps de métier différents.</li>
                         </ul>
@@ -250,10 +252,10 @@
                         <div class="timeline-dot"></div>
                         <div class="flex justify-between items-start">
                             <h4 class="font-bold text-slate-800">CPGE TSI</h4>
-                            <span class="text-xs font-bold text-orange-700 bg-orange-100 px-2 py-1 rounded">2024 - 2026</span>
+                            <span class="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100">2024 - 2026</span>
                         </div>
-                        <h5 class="text-sm text-slate-500 italic">Lycée Louis-Thuillier, Amiens</h5>
-                        <p class="text-sm text-gray-600 mt-1">
+                        <h5 class="text-sm text-slate-500 italic mt-1">Lycée Louis-Thuillier, Amiens</h5>
+                        <p class="text-sm text-slate-600 mt-1">
                             Formation scientifique et technologique exigeante (En cours).
                         </p>
                     </div>
@@ -262,10 +264,10 @@
                         <div class="timeline-dot"></div>
                         <div class="flex justify-between items-start">
                             <h4 class="font-bold text-slate-800">Baccalauréat STI2D</h4>
-                            <span class="text-xs font-bold text-orange-700 bg-orange-100 px-2 py-1 rounded">2021 - 2024</span>
+                            <span class="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100">2021 - 2024</span>
                         </div>
-                        <h5 class="text-sm text-slate-500 italic">Lycée Jean-Racine, Montdidier</h5>
-                        <p class="text-sm text-gray-600 mt-1 text-orange-600 font-semibold">
+                        <h5 class="text-sm text-slate-500 italic mt-1">Lycée Jean-Racine, Montdidier</h5>
+                        <p class="text-sm text-slate-600 mt-1 text-blue-600 font-semibold">
                             Obtenu avec Mention Assez Bien
                         </p>
                     </div>
@@ -274,9 +276,9 @@
                         <div class="timeline-dot"></div>
                         <div class="flex justify-between items-start">
                             <h4 class="font-bold text-slate-800">Diplôme National du Brevet</h4>
-                            <span class="text-xs font-bold text-orange-700 bg-orange-100 px-2 py-1 rounded">2018 - 2021</span>
+                            <span class="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100">2018 - 2021</span>
                         </div>
-                        <h5 class="text-sm text-slate-500 italic">Collège Saint-Vincent, Montdidier</h5>
+                        <h5 class="text-sm text-slate-500 italic mt-1">Collège Saint-Vincent, Montdidier</h5>
                     </div>
                 </div>
             </section>
